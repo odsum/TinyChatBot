@@ -58,7 +58,8 @@ For further questions, catch me online as buddy in http://tinychat.com/fobcity
 
 	Other cmds: !urb, !8ball, !flip, !roll, !whoplayed, !now, !status, !chuck, !wea
 
-	
+Run gib_detect_train.py first to generate a db.
+
 
 ## Pinylib-RTC
 
@@ -79,7 +80,7 @@ pinylib-rtc was developed using [python 2.7.10](https://www.python.org/downloads
 
 pinylib-rtc requires 4 libraries that are not part of the standard python library, these being:
 
-* Gibberish https://github.com/rrenaud/Gibberish-Detector
+* https://github.com/rrenaud/Gibberish-Detector
 * https://pypi.python.org/pypi/pycrypto
 * [websocket-client](https://github.com/websocket-client/websocket-client)
 * [requests](https://github.com/kennethreitz/requests "requests")
@@ -95,18 +96,9 @@ These can all be installed form a command prompt with pip.
 
 Run the client by typing `python path\to\bot.py` in a command prompt.
 
-## Submitting an issue.
-Issues posted should be about pinylib-rtc and **only** pinylib-rtc. 
 
-Before submitting an issue, please read through the [issues](https://github.com/nortxort/pinylib-rtc/issues) section, including already closed issues. If you do not find an answer to your issue, then please provide as much info as possible when opening an issue. Possible info could be:
-
-* Python version including subversion.
-* Pinylib-rtc version.
-* Debug log.
-* How to reproduce the issue/error.
-
-
-## Author
+## Authors
+* [odsum] (https://github.com/odsum)
 * [nortxort](https://github.com/nortxort)
 
 
