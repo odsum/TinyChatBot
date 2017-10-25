@@ -137,9 +137,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	
     	spamnick = gib_detect_train.avg_transition_prob(_user.nick, model_mat) > threshold
 
-	if len(_user.nick) > 7 and spamnick == 0:
-        	self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['cyan'], 'Spam: randomized nick %s' % (spamnick))
+	if len(_user.nick) > 5 and spamnick == 0:
+        
+		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+			pass
+		elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+			pass
+		elif len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+			pass
+                elif len(_user.account) is 0:
+                	self.send_ban_msg(_user.id)
+                	self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
+
 
         if _user.nick in pinylib.CONFIG.B_NICK_BANS:
 		if bots == 1 and bot_master == 1 or bots == 0: 
@@ -232,8 +241,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	if not pinylib.CONFIG.B_ALLOW_GUESTS:		
 				if bots == 1 and bot_master == 0 or bots == 0:
 					if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-							pass	
-					elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD: 
+							pass
+					elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 							pass
 					elif len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 							pass
@@ -375,9 +384,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     	spamnick = gib_detect_train.avg_transition_prob(_user.nick, model_mat) > threshold
 
- 	if len(_user.nick) > 7 and spamnick == 0:
-        	self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
+ 	if len(_user.nick) > 5 and spamnick == 0:
+		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+			pass
+		elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+			pass
+		elif len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+			pass
+                elif len(_user.account) is 0:
+                	self.send_ban_msg(_user.id)
+                	self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
 
         if uid != self.client_id:
             if _user.nick in pinylib.CONFIG.B_NICK_BANS:
