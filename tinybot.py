@@ -144,10 +144,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 			pass
 		elif len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			pass
+			self.send_ban_msg(_user.id)
                 elif len(_user.account) is 0:
                 	self.send_ban_msg(_user.id)
-                	self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
+                self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
 
 
         if _user.nick in pinylib.CONFIG.B_NICK_BANS:
@@ -390,10 +390,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 			pass
 		elif len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			pass
+			self.send_ban_msg(_user.id)
                 elif len(_user.account) is 0:
                 	self.send_ban_msg(_user.id)
-                	self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
+                self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
 
         if uid != self.client_id:
             if _user.nick in pinylib.CONFIG.B_NICK_BANS:
