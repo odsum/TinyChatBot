@@ -97,6 +97,9 @@ These can all be installed form a command prompt with pip.
 
 Run the client by typing `python path\to\bot.py` in a command prompt.
 
+!v <account> to verify
+!chatmod <account> to add as a chatmod
+
 
 ## Authors
 * [odsum] (https://github.com/odsum)
