@@ -28,7 +28,7 @@ B_PREFIX = '!'
 B_BOT_HUB = False
 B_BOT_HUB_HOST = ''
 B_BOT_HUB_PORT = 1337
-B_BOT_HUB_KEY = '12345678'
+B_HUB_KEY = '12345678'
 
 # If you're running two bots, set one to Master.  Splits the functionality
 B_BOT_MASTER = True
