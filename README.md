@@ -43,6 +43,7 @@ For further questions, catch me online as buddy in http://tinychat.com/fobcity
 	- Administrator user level which allow admin defined users to access Add/Remove Monderators
 	- unban, !forgive is not working
 	- Clean up code, move on_join checking to another function
+	- Vote Banning System
 	- Update to python 3
 
 - Commands:
