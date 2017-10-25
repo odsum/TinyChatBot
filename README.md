@@ -3,6 +3,7 @@
 
 Based off Nortxort's Tinychat Bot and Pinylib.
 For further questions, catch me online as buddy in http://tinychat.com/fobcity
+BTW: I am not a programmer, I learnt Python a few weeks ago.
 
 - Spam Protection
 	- On Join flooding
