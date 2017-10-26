@@ -14,8 +14,6 @@ import socket
 import random
 from random import randint
 
-import pickle
-import gib_detect_train
 import base64
 
 __version__ = '1.1-Buddy'
@@ -39,7 +37,6 @@ spammer = 0
 djs = []
 dj_mode = 0
 
-model_data = pickle.load(open('gib_model.pki', 'rb'))
 
 class TinychatBot(pinylib.TinychatRTCClient):
     privacy_ = None
@@ -58,12 +55,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
     global hub_host
     global hub_port
     global key
-    global model_mat
-    global threshold
     global lockdown
 
-    model_mat = model_data['mat']
-    threshold = model_data['thresh']
 
     key = pinylib.CONFIG.B_HUB_KEY
 
@@ -135,19 +128,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         log.info('user join info: %s' % join_info)
         _user = self.users.add(join_info)
 	
-    	spamnick = gib_detect_train.avg_transition_prob(_user.nick, model_mat) > threshold
-
-	if len(_user.nick) > 5 and spamnick == 0:
-        
-		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			pass
-		elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			pass
-		elif len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			self.send_ban_msg(_user.id)
-                elif len(_user.account) is 0:
-                	self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
 
 
         if _user.nick in pinylib.CONFIG.B_NICK_BANS:
@@ -190,6 +170,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		
 		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 			_user.user_level = 4
+			self.console_write(pinylib.COLOR['cyan'], '%s is a chatmod.' % (_user.account))
 
         if lockdown:
 
@@ -230,11 +211,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				elif not hub and lockdown == 0:
 					if pinylib.CONFIG.B_ALLOW_GUESTS:		
 						self.do_guests()
-
+					lockdown = True	
                                 	self.send_chat_msg('a0: Lockdown - No guest mode')
 
 	                autoban_time = time_join
-                        self.console_write(pinylib.COLOR['cyan'], 'Lockdown started %' % (time_join))
+                        self.console_write(pinylib.COLOR['cyan'], 'Lockdown starte')
         	else:
                         joind_count += 1
 
@@ -382,18 +363,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         old_nick = _user.nick
         _user.nick = nick
 
-    	spamnick = gib_detect_train.avg_transition_prob(_user.nick, model_mat) > threshold
-
- 	if len(_user.nick) > 5 and spamnick == 0:
-		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			pass
-		elif _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			pass
-		elif len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(_user.account) is not 0 and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-			self.send_ban_msg(_user.id)
-                elif len(_user.account) is 0:
-                	self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['cyan'], 'Spam: Random Nick')
 
         if uid != self.client_id:
             if _user.nick in pinylib.CONFIG.B_NICK_BANS:
@@ -1775,6 +1744,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	global lastmsgs
 	global spam
 	global spammer
+    	global model_mat
+    	global threshold
 
         should_be_banned = False
 	is_a_spammer = False
@@ -1788,6 +1759,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
             elif bad in chat_words:
                     should_be_banned = True
 
+	#if gib_detect_train.avg_transition_prob(msg, model_mat) > threshold:
+        #            should_be_banned = True
+		
 	if bots == 1 and bot_master == 1 or bots == 0: 
 
 		if len(self.active_user.account) is 0 or len(self.active_user.account) is not 0 and self.active_user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(self.active_user.account) is not 0 and self.active_user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
@@ -1842,7 +1816,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 					self.do_clear()
 				self.send_ban_msg(self.active_user.id)
 
-			self.console_write(pinylib.COLOR['cyan'], 'Spam: Flood, Repeat or Badword by %s' % (self.active_user.nickt))
+			self.console_write(pinylib.COLOR['cyan'], 'Spam: Flood, Repeat or Badword by %s' % (self.active_user.nick))
 
     def check_lockstatus(self, msg):
            
