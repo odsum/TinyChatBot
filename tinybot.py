@@ -170,7 +170,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		
 		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 			_user.user_level = 4
-			self.console_write(pinylib.COLOR['cyan'], '%s is a chatmod.' % (_user.account))
+			if bots == 1 and bot_master == 1 or bots == 0: 
+	  			self.send_chat_msg('%s is a Fobcity Mod' % (_user.nick))
 
         if lockdown:
 
