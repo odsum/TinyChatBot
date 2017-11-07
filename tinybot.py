@@ -50,7 +50,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         return pinylib.CONFIG.CONFIG_PATH + self.room_name + '/'
     
     global bots
-    global bot_master
+    global is_master
     global hub
     global hub_host
     global hub_port
@@ -62,7 +62,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     lockdown = False
     bots = False
-    bot_master = pinylib.CONFIG.B_BOT_MASTER
+    is_master = pinylib.CONFIG.B_IS_MASTER
 
     hub = pinylib.CONFIG.B_BOT_HUB
    
@@ -117,8 +117,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
   	global joind_time 
         global joind_count
         global autoban_time
-        global bots
-	global bot_master
 	global lockdown
 
         time_join = time.time()
@@ -147,23 +145,35 @@ class TinychatBot(pinylib.TinychatRTCClient):
         
 	    else:
 
-                self.console_write(pinylib.COLOR['bright_yellow'], '[User] %s:%d has account: %s' %
-                                   (_user.nick, _user.id, _user.account))
-
 
 		# set user
+		# 1 owner
+		# 2 chat admin, control adding real mods, room settings, etc
+		# 3 real mods
+		# 4 chatmods, or tmp mods
+		# 5 verified user
+		# 6 user with an account
+		# 6 user without an account
+
+
+		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATADMIN:
+			_user.user_level = 2
+               		self.console_write(pinylib.COLOR['bright_red'], '[User] Chat Admin %s:%d:%s' % (_user.nick, _user.id, _user.account))
+
 		if _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 			_user.user_level = 4
 			if self.bot_master():
 	  			self.send_chat_msg('%s is a Fobcity Mod' % (_user.nick))
+               		 	self.console_write(pinylib.COLOR['bright_red'], '[User] Chat Mod %s:%d:%s' % (_user.nick, _user.id, _user.account))
+
 
 		if _user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and _user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
 			_user.user_level = 5
+               		self.console_write(pinylib.COLOR['bright_red'], '[User] Verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
+
 		if _user.account is not None:
 			_user.user_level = 6
-		else:
-			_user.user_level = 7
-
+               		self.console_write(pinylib.COLOR['bright_red'], '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
 
 	        if _user.account in pinylib.CONFIG.B_ACCOUNT_BANS and self.is_client_mod:
@@ -181,7 +191,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         _user.tinychat_id = tc_info['tinychat_id']
                         _user.last_login = tc_info['last_active']
 		
-
+	else:
+			_user.user_level = 7
+			self.console_write(pinylib.COLOR['bright_red'], '[User] Guest %s:%d' % (_user.nick, _user.id))
 
 	# if the room was flooded
         if lockdown and self.is_client_mod and autoban_time != 0:
@@ -234,7 +246,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
 	if not pinylib.CONFIG.B_ALLOW_GUESTS:		
 		if not self.bot_master():         
-                	if _user.level == 7:
+                	if _user.user_level == 7:
                 		self.send_ban_msg(_user.id)
     				self.console_write(pinylib.COLOR['cyan'], '%s was banned on no guest mode' % (_user.nick))
 	
@@ -251,14 +263,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
         		if pinylib.CONFIG.B_GREET and _user is not None:
 				if not self.bot_master():         
             				if not _user.nick.startswith('guest-'):
-						if _user.level < 4:
-							self.send_private_msg(_user.id, 'You have Mod access - !help')
-						elif _user.level == 5: 	
-							self.send_private_msg(_user.id, 'You are verified, you add to the Youtube social playlist via !yt - Other cmds type !help')
-						elif _user.level == 6:
-							self.send_private_msg(_user.id, 'Welcome to Fobcity - ask to have your account verified.')
-                				elif _user.level == 7:
-							self.send_private_msg(_user.id, 'Welcome to Fobcity - we suggest making an account, personal info trolling or sexual harassment will not be tolerated.')
+						if _user.user_level < 4:
+							pass
+							#self.send_private_msg(_user.id, 'You have Mod access - !help')
+						elif _user.user_level == 5:
+							pass 	
+							#self.send_private_msg(_user.id, 'You are verified, you add to the Youtube social playlist via !yt - Other cmds type !help')
+						elif _user.user_level == 6:
+							#self.send_private_msg(_user.id, 'Welcome to Fobcity - ask to have your account verified.')
+							self.send_chat_msg('Welcome to Fobcity %s - ask to have your account verified.' % (_user.nick))
+                				elif _user.user_level == 7:
+							#self.send_private_msg(_user.id, 'Welcome to Fobcity - we suggest making an account, personal info trolling or sexual harassment will not be tolerated.')
+							self.send_chat_msg('Welcome to Fobcity %s, we suggest making an account.' % (_user.nick))
 
     def on_pending_moderation(self, pending):
 	if not self.bot_master():
@@ -448,12 +464,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
                                    (_user.nick, int(round(yt_data['item']['offset']))))
 	
     def bot_master(self):
- 	
-	if bots == 1 and bot_master == 1 or bots == 0:
-		return 1
-	if bots == 1 and bot_master == 0:
-		return 0
-
+        global bots
+	global is_master	
+	if bots == 1 and is_master == 1:
+		return True
+	else:
+		return False
 
     def message_handler(self, msg):
         """
@@ -479,35 +495,37 @@ class TinychatBot(pinylib.TinychatRTCClient):
  		if self.bot_master():
                 	if cmd == prefix + 'chatmod':
                     		self.do_chatmod(cmd_arg)
-                    	elif cmd == prefix + 'amod':
-                        	threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
-                    	elif cmd == prefix + 'ramod':
-                        	threading.Thread(target=self.do_remove_mod, args=(cmd_arg,)).start()
-                   	elif cmd == prefix + 'dir':
-                        	threading.Thread(target=self.do_directory).start()
                 	elif cmd == prefix + 'rmchatmod':
                     		self.do_remove_chatmod(cmd_arg)
-                    	elif cmd == prefix + 'p2t':
-                        	self.do_push2talk()
-                	elif cmd == prefix + 'reboot':
-                    		self.do_reboot()
                 	elif cmd == prefix + 'demod':
                     		self.do_deop_user(cmd_arg)
                 	elif cmd == prefix + 'noguest':
                     		self.do_guests()
-                	elif cmd == prefix + 'greet':
-                    		self.do_greet()
-                	elif cmd == prefix == 'kb':
-                    		self.do_kick_as_ban()
                 	elif cmd == prefix + 'lockdown':
                     		self.do_lockdown(1)
                 	elif cmd == prefix + 'lockup':
                     		self.do_lockdown(0)
 
-            if _user.level < 2:
-			pass
+            if _user.user_level < 2: 
+			if cmd == prefix + 'chatadmin':
+                    		self.do_chatadmin(cmd_arg)
+                    	elif cmd == prefix + 'p2t':
+				pass
+                	elif cmd == prefix + 'greet':
+                    		self.do_greet()
+                	elif cmd == prefix == 'kb':
+                    		self.do_kick_as_ban()
+                        	self.do_push2talk()
+                	elif cmd == prefix + 'reboot':
+                    		self.do_reboot()
+                   	elif cmd == prefix + 'dir':
+                        	threading.Thread(target=self.do_directory).start()
+                    	elif cmd == prefix + 'amod':
+                        	threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
+                    	elif cmd == prefix + 'ramod':
+                        	threading.Thread(target=self.do_remove_mod, args=(cmd_arg,)).start()
 
-            if _user.level < 4:
+            if _user.user_level < 4:
 
  		if not self.bot_master():
      
@@ -551,7 +569,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 	elif cmd == prefix + 'djmode':
                     		self.do_dj_mode()
 
-	    if _user_level < 6:
+	    if _user.user_level < 6:
 
 				if dj_mode and _user.account not in djs:
 					isdj = 1
@@ -1305,6 +1323,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
                 self.load_list(verified=True)
 
+
     def do_remove_verified(self, verified_account):
         if self.is_client_mod:
             if len(verified_account) is 0:
@@ -1322,6 +1341,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				self.send_chat_msg('Account %s was removed from verified accounts.' % verified_account)
 
                         self.load_list(verified=True)
+
 
     def do_chatmod(self, verified_name):
 
@@ -1359,6 +1379,45 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				self.send_chat_msg('%s is not a chatmod anymore.' % verified_account)
 
                         self.load_list(chatmod=True)
+
+
+    def do_chatadmin(self, verified_name):
+
+        if self.is_client_mod:
+            if len(verified_name) is 0:
+                self.send_chat_msg('Account can\'t be blank.')
+            elif len(verified_name) < 3:
+                self.send_chat_msg('Account too short: ' + str(len(verified_name)))
+            elif verified_name in pinylib.CONFIG.B_ACCOUNT_CHATADMIN:
+                self.send_chat_msg('%s is already in list.' % verified_name)
+            else:
+                pinylib.file_handler.file_writer(self.config_path,
+                                                 pinylib.CONFIG.B_ACCOUNT_CHATADMIN_FILE_NAME,
+                                                 verified_name)
+		if self.bot_master():
+     	        	self.send_chat_msg('c1: %s is an admin now.' % verified_name)
+		else:
+			self.send_chat_msg('%s is an admin now.' % verified_name)
+
+	        self.load_list(chatadmin=True)
+
+    def do_remove_chatadmin(self, verified_account):
+        if self.is_client_mod:
+            if len(verified_account) is 0:
+                self.send_chat_msg('Missing account.')
+            else:
+                if verified_account in pinylib.CONFIG.B_ACCOUNT_CHATADMIN:
+                    rem = pinylib.file_handler.remove_from_file(self.config_path,
+                                                                pinylib.CONFIG.B_ACCOUNT_CHATADMIN_FILE_NAME,
+                                                                verified_account)
+                    if rem:
+			if self.bot_master():
+     	        		self.send_chat_msg('c2: %s was removed as an admin.' % verified_account)
+			else:
+				self.send_chat_msg('%s is not an admin anymore.' % verified_account)
+
+                        self.load_list(chatadmin=True)
+
 
     def do_user_info(self, user_name):
         """ 
@@ -1403,10 +1462,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         _user = self.users.search_by_nick(user_name)
         if len(user_name) > 0:
-                if _user is not None and _user.is_waiting:
+              	 if _user.is_waiting:
                     self.send_cam_approve_msg(_user.id)
-            	else:
-                    self.send_chat_msg('No user named: %s' % user_name)
+        else:
+                self.send_chat_msg('No user named: %s' % user_name)
 
     def do_close_broadcast(self, user_name):
         """
@@ -1680,7 +1739,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if self.is_client_mod:
         	self.send_banlist_msg()
 
-        self.load_list(nicks=True, accounts=True, strings=True, verified=True, chatmod=True)
+        self.load_list(nicks=True, accounts=True, strings=True, verified=True, chatmod=True, chatadmin=True)
 	
 	who_am_i = '['+str(self.account)+']'
         h = MD5.new()
@@ -1691,7 +1750,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         bot_id = h.hexdigest()
 	self.send_chat_msg('YABUDDY - '+str(bot_id))
 
-    def load_list(self, nicks=False, accounts=False, strings=False, verified=False, chatmod=False):
+    def load_list(self, nicks=False, accounts=False, strings=False, verified=False, chatmod=False, chatadmin=True):
         """
         Loads different list to memory.
         
@@ -1711,6 +1770,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if chatmod:
             pinylib.CONFIG.B_ACCOUNT_CHATMOD = pinylib.file_handler.file_reader(self.config_path,
                                                                              pinylib.CONFIG.B_ACCOUNT_CHATMOD_FILE_NAME)
+        if chatadmin:
+            pinylib.CONFIG.B_ACCOUNT_CHATADMIN = pinylib.file_handler.file_reader(self.config_path,
+                                                                             pinylib.CONFIG.B_ACCOUNT_CHATADMIN_FILE_NAME)
         if strings:
             pinylib.CONFIG.B_STRING_BANS = pinylib.file_handler.file_reader(self.config_path,
                                                                             pinylib.CONFIG.B_STRING_BANS_FILE_NAME)
@@ -1786,7 +1848,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	
 	if self.bot_master():
 	
-		if len(self.active_user.account) is 0 or len(self.active_user.account) is not 0 and self.active_user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(self.active_user.account) is not 0 and self.active_user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+		if self.active_user.user_level > 5:
 	
 			if len(lastmsgs) is 0:
 				lastmsgs.append(msg)
@@ -1820,11 +1882,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				self.console_write(pinylib.COLOR['bright_yellow'], 'Spam: Resetting last message db.')
 
 	if should_be_banned:
-			if self.active_user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
-				pass	
-			elif self.active_user.account in pinylib.CONFIG.B_ACCOUNT_VERIFIED and self.active_user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD: 
-				pass
-			elif len(self.active_user.account) is not 0 and self.active_user.account not in pinylib.CONFIG.B_ACCOUNT_VERIFIED or len(self.active_user.account) is not 0 and self.active_user.account not in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+			if self.active_user.user_level == 6:
 				if is_a_spammer: 
 		 			self.do_bad_account(self.active_user.account)
 					is_a_spammer = False
@@ -1919,3 +1977,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 					self.do_chatmod(whatwhat)		
 				if word == "b0:":
 					self.do_remove_chatmod(whatwhat)			
+				if word == "c1:":
+					self.do_add_chatadmin(whatwhat)			
+				if word == "c2:":
+					self.do_remove_chatadmin(whatwhat)			

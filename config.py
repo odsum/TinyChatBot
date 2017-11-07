@@ -31,7 +31,7 @@ B_BOT_HUB_PORT = 1337
 B_HUB_KEY = '12345678'
 
 # If you're running two bots, set one to Master.  Splits the functionality
-B_BOT_MASTER = True
+B_IS_MASTER = True
 
 # The maximum amount of match bans.
 B_MAX_MATCH_BANS = 1
@@ -64,6 +64,9 @@ B_ACCOUNT_VERIFIED = []
 
 B_ACCOUNT_CHATMOD_FILE_NAME = 'account_chatmod.txt'
 B_ACCOUNT_CHATMOD = []
+
+B_ACCOUNT_CHATADMIN_FILE_NAME = 'account_chatadmin.txt'
+B_ACCOUNT_CHATADMIN = []
 # A list of account bans.
 B_ACCOUNT_BANS = []
 # The file name of string(words) bans.
