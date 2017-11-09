@@ -4,10 +4,10 @@
 Based off Nortxort's Tinychat Bot and Pinylib.
 For further questions, catch me online as buddy in http://tinychat.com/fobcity
 BTW: I am not a programmer, I learnt Python a few weeks ago.
+Account Management is done via users.db, might have to create it by hand first.  {users:{}}
 
 - Spam Protection
 	- On Join flooding
-	- Gibberish Nick Detection
 	- Spam Repeat text
 	- Hub communication to lockdown the room with a randomized Password
 
@@ -82,7 +82,6 @@ pinylib-rtc was developed using [python 2.7.10](https://www.python.org/downloads
 
 pinylib-rtc requires 4 libraries that are not part of the standard python library, these being:
 
-* https://github.com/rrenaud/Gibberish-Detector
 * https://pypi.python.org/pypi/pycrypto
 * [websocket-client](https://github.com/websocket-client/websocket-client)
 * [requests](https://github.com/kennethreitz/requests "requests")
