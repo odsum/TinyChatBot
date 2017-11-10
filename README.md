@@ -4,7 +4,9 @@
 Based off Nortxort's Tinychat Bot and Pinylib.
 For further questions, catch me online as buddy in http://tinychat.com/fobcity
 BTW: I am not a programmer, I learnt Python a few weeks ago.
-Account Management is done via users.db, might have to create it by hand first.  {users:{}}
+
+Moved storage data to use pickledb, uncomment right area to create the users.db
+
 
 - Spam Protection
 	- On Join flooding
@@ -59,8 +61,6 @@ Account Management is done via users.db, might have to create it by hand first. 
 	Admin Cmds: !lockdown (noguests), !lockup(password enabled), !noguest, !p2t
 
 	Other cmds: !urb, !8ball, !flip, !roll, !whoplayed, !now, !status, !chuck, !wea
-
-Run gib_detect_train.py first to generate a db.
 
 
 ## Pinylib-RTC
