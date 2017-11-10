@@ -95,6 +95,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     userdb = pinylib.CONFIG.CONFIG_PATH + 'fobcity' + '/' + 'user.db'
     db = pickledb.load(userdb, False)
+    #uncomment for first run to create the database
+    #db.dcreate('users')
+    #db.dcreate('badwords')
+    #db.dcreate('badnicks')
 
 
     def on_joined(self, client_info):
@@ -1148,17 +1152,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if self.is_client_mod:
             if len(bad_nick) is 0:
                 self.send_chat_msg('Missing username.')
-            elif bad_nick in pinylib.CONFIG.B_NICK_BANS:
+	    elif self.nick_check(bad_nick):
                 self.send_chat_msg('%s is already in list.' % bad_nick)
             else:
-                pinylib.file_handler.file_writer(self.config_path,
-                                                 pinylib.CONFIG.B_NICK_BANS_FILE_NAME, bad_nick)
-
+		user = {'by':self.active_user.account,'created':time.time(),'reason':'NA'}
+		db.dadd('badnicks',(bad_nick, user))
+		db.dump()
 		if self.bot_master():
 	                self.send_chat_msg('b1: %s added to banned nicks.' % bad_nick)
             	else: 
 	                self.send_chat_msg('%s was added to banned nicks.' % bad_nick)
-		self.load_list(nicks=True)
 
     def do_remove_bad_nick(self, bad_nick):
         """ 
@@ -1171,17 +1174,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if len(bad_nick) is 0:
                 self.send_chat_msg('Missing username')
             else:
-                if bad_nick in pinylib.CONFIG.B_NICK_BANS:
-                    rem = pinylib.file_handler.remove_from_file(self.config_path,
-                                                                pinylib.CONFIG.B_NICK_BANS_FILE_NAME,
-                                                                bad_nick)
-                if rem:
+	       	if not self.nick_check(bad_nick):
+     	          	self.send_chat_msg('%s is not in the banned nicks.' % bad_nick)
+		else:
+			db.dpop('badnicks', bad_nick)
+			db.dump()
+
 			if self.bot_master():
 	                	self.send_chat_msg('b2: %s removed from banned nicks.' % bad_nick)
             		else: 
 	                	self.send_chat_msg('%s removed from banned nicks.' % bad_nick)
-
-                        self.load_list(nicks=True)
 
     def do_bad_string(self, bad_string):
         """ 
@@ -1195,16 +1197,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_chat_msg('Ban string can\'t be blank.')
             elif len(bad_string) < 3:
                 self.send_chat_msg('Ban string to short: ' + str(len(bad_string)))
-            elif bad_string in pinylib.CONFIG.B_STRING_BANS:
+	    elif self.word_check(bad_string):
                 self.send_chat_msg('%s is already in list.' % bad_string)
             else:
-                pinylib.file_handler.file_writer(self.config_path,
-                                                 pinylib.CONFIG.B_STRING_BANS_FILE_NAME, bad_string)
+
+		user = {'by':self.active_user.account,'created':time.time(),'reason':'NA'}
+		db.dadd('badwords',(bad_string, user))
+		db.dump()
+
 		if self.bot_master():
      	          	self.send_chat_msg('b3: %s was added to banned words.' % bad_string)
 		else:
                 	self.send_chat_msg('%s was added to banned words.' % bad_string)
-                self.load_list(strings=True)
 
     def do_remove_bad_string(self, bad_string):
         """ 
@@ -1217,17 +1221,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if len(bad_string) is 0:
                 self.send_chat_msg('Missing word string.')
             else:
-                if bad_string in pinylib.CONFIG.B_STRING_BANS:
-             		rem = pinylib.file_handler.remove_from_file(self.config_path,
-                                                                pinylib.CONFIG.B_STRING_BANS_FILE_NAME,
-                                                                bad_string)
-                    	if rem:
-				if self.bot_master():
-     	          			self.send_chat_msg('b4: %s was removed from banned words.' % bad_string)
-				else:
-                			self.send_chat_msg('%s was removed to banned words.' % bad_string)
 
-                        	self.load_list(strings=True)
+	       	if not self.word_check(bad_string):
+     	          	self.send_chat_msg('%s is not banned.' % bad_string)
+
+		else:
+			db.dpop('badwords', bad_string)
+			db.dump()
+
+			if self.bot_master():
+     	          		self.send_chat_msg('b4: %s was removed from banned words.' % bad_string)
+			else:
+                		self.send_chat_msg('%s was removed to banned words.' % bad_string)
 
     def do_bad_account(self, bad_account_name):
         """ 
@@ -1286,7 +1291,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def do_verified(self, verified_name):
 
-	
         if self.is_client_mod:
             if len(verified_name) is 0:
                 self.send_chat_msg('Account can\'t be blank.')
@@ -1337,6 +1341,22 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		return user['level']
         else:
 		return 0
+
+    def word_check(self,word):
+
+	if db.dexists('badwords', word):
+		user = db.dget('badwords',word)
+		return True
+        else:
+		return False
+
+    def nick_check(self,nick):
+
+	if db.dexists('badnicks', nick):
+		user = db.dget('badnicks',nick)
+		return True
+        else:
+		return False
 
     def do_chatmod(self, verified_name):
 
@@ -1419,75 +1439,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         self.load_list(chatadmin=True)
 
 
-    def do_user_info(self, user_name):
-        """ 
-        Shows user object info for a given user name.
-
-        :param user_name: The user name of the user to show the info for.
-        :type user_name: str
-        """
-        if self.is_client_mod:
-            if len(user_name) is 0:
-                self.send_chat_msg('Missing username.')
-            else:
-                _user = self.users.search_by_nick(user_name)
-                if _user is None:
-                    self.send_chat_msg('No user named: %s' % user_name)
-                else:
-                    if _user.account and _user.tinychat_id is None:
-                        user_info = pinylib.apis.tinychat.user_info(_user.account)
-                        if user_info is not None:
-                            _user.tinychat_id = user_info['tinychat_id']
-                            _user.last_login = user_info['last_active']
-                    online_time = (pinylib.time.time() - _user.join_time)
-		    		
-		    if _user.user_level == 1:
-			 	l = 'Owner'
-		    if _user.user_level == 2:
- 			 	l = 'Admin'
-		    if _user.user_level == 3:
- 			 	l = 'Mod'
-		    if _user.user_level == 4:
- 			 	l = 'Chat Mod'
-		    if _user.user_level == 5:
- 			 	l = 'Verified'
-		    if _user.user_level == 6:
- 			 	l = 'No Verified'
-		    if _user.user_level == 7:
- 			 	l = 'Guest'
-                    info = [
-                        'User type: ' + l,
-                        'Online Time: ' + self.format_time(online_time)
-                        #'Last Message: ' + str(_user.last_msg)
-                    ]
-                    if _user.tinychat_id is not None:
-                        info.append('Account: ' + str(_user.account))
-                        #info.append('Tinychat ID: ' + str(_user.tinychat_id))
-                        info.append('Last Login: ' + _user.last_login)
-		  
-		    verified = pinylib.CONFIG.B_ACCOUNT_VERIFIED
-		    for v in verified: 
-		    	v = v.split(' ')
-		    	if _user.account in v[0]:
-				if len(v) > 1:
-                        		info.append('Verified by: ' + v[1])
-                        		info.append('Verified Date: ' + datetime.fromtimestamp(float(v[2])).isoformat())
-                        		info.append('Verified in: ' + v[3])
-
-								
-                    self.send_chat_msg('\n'.join(info))
-
-    def is_verified(self, account):
-
-		return False
-
-		verified = pinylib.CONFIG.B_ACCOUNT_VERIFIED
-		for v in verified: 
-			v = v.split(' ')
-		    	if account in v[0]:
-				return True
-
-
     def do_cam_approve(self, user_name):
         """
         Allow a user to broadcast in a green room enabled room.
@@ -1499,6 +1450,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if len(user_name) > 0:
               	 if _user.is_waiting:
                     self.send_cam_approve_msg(_user.id)
+		    _user.is_broadcasting = True
         else:
                 self.send_chat_msg('No user named: %s' % user_name)
 
@@ -1774,8 +1726,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if self.is_client_mod:
         	self.send_banlist_msg()
 
-        self.load_list(nicks=True, strings=True)
-	
 	who_am_i = '['+str(self.account)+']'
         h = MD5.new()
         h.update(who_am_i)
@@ -1785,20 +1735,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         bot_id = h.hexdigest()
 	self.send_chat_msg('YABUDDY - '+str(bot_id))
 
-    def load_list(self, nicks=False, strings=False):
-        """
-        Loads different list to memory.
-        
-        :param nicks: bool, True load nick bans file.
-        :param accounts: bool, True load account bans file.
-        :param strings: bool, True load ban strings file.
-        """
-        if nicks:
-            pinylib.CONFIG.B_NICK_BANS = pinylib.file_handler.file_reader(self.config_path,
-                                                                          pinylib.CONFIG.B_NICK_BANS_FILE_NAME)
-        if strings:
-            pinylib.CONFIG.B_STRING_BANS = pinylib.file_handler.file_reader(self.config_path,
-                                                                            pinylib.CONFIG.B_STRING_BANS_FILE_NAME)
 
     def has_level(self, level):
         """ 
