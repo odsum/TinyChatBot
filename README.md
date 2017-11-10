@@ -4,7 +4,8 @@
 Based off Nortxort's Tinychat Bot and Pinylib.
 For further questions, catch me online as buddy in http://tinychat.com/fobcity
 BTW: I am not a programmer, I learnt Python a few weeks ago.
-Account Management is done via users.db, might have to create it by hand first.  {users:{}}
+
+All database related items moved to using pickledb, uncomment the right section to start the users.db until later.
 
 - Spam Protection
 	- On Join flooding
