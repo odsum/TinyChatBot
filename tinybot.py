@@ -136,7 +136,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         log.info('user join info: %s' % join_info)
         _user = self.users.add(join_info)
 
-        if _user.nick in pinylib.CONFIG.B_NICK_BANS:
+	if self.nick_check(_user.nick):
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                 	self.send_kick_msg(_user.id)
         	else:
@@ -374,7 +374,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
 
         if uid != self.client_id:
-            if _user.nick in pinylib.CONFIG.B_NICK_BANS:
+            if self.nick_check(_user.nick):
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                     self.send_kick_msg(uid)
                 else:
@@ -1669,21 +1669,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
              del botnet[:]
              bots = False
 
-    def do_clear_bad_nicks(self):
-        """ Clear the nick bans file. """
-        pinylib.CONFIG.B_NICK_BANS[:] = []
-        pinylib.file_handler.delete_file_content(self.config_path, pinylib.CONFIG.B_NICK_BANS_FILE_NAME)
-
-    def do_clear_bad_strings(self):
-        """ Clear the string bans file. """
-        pinylib.CONFIG.B_STRING_BANS[:] = []
-        pinylib.file_handler.delete_file_content(self.config_path, pinylib.CONFIG.B_STRING_BANS_FILE_NAME)
-
-    def do_clear_bad_accounts(self):
-        """ Clear the account bans file. """
-        pinylib.CONFIG.B_ACCOUNT_BANS[:] = []
-        pinylib.file_handler.delete_file_content(self.config_path, pinylib.CONFIG.B_ACCOUNT_BANS_FILE_NAME)
-
     def timer_event(self):
         """ This gets called when the timer has reached the time. """
         if len(self.playlist.track_list) > 0:
@@ -1794,15 +1779,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	is_a_spammer = False
 
         chat_words = msg.split(' ')
-        for bad in pinylib.CONFIG.B_STRING_BANS:
-            if bad.startswith('*'):
-                _ = bad.replace('*', '')
-                if _ in msg:
-                    should_be_banned = True
-            elif bad in chat_words:
-                    should_be_banned = True
-
 	
+        for word in chat_words:
+	    if self.word_check(word):
+		should_be_banned = True
+
 	if self.active_user.user_level > 5:
 	
 			if len(lastmsgs) is 0:
