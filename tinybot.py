@@ -372,7 +372,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	    
 	    _user = self.users.search_by_nick(self.active_user.nick)
 
-            if _user.user_level < 5:
+            if _user.user_level < 4:
                 	if cmd == prefix + 'chatmod':
                     		self.do_chatmod(cmd_arg)
                 	elif cmd == prefix + 'rmchatmod':
@@ -386,7 +386,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 	elif cmd == prefix + 'lockup':
                     		self.do_lockdown(0)
 
-            if _user.user_level < 3:
+            if _user.user_level == 2:
  
 			if cmd == prefix + 'chatadmin':
                     		self.do_chatadmin(cmd_arg)
@@ -581,7 +581,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		else:
 			djs.append(_user.account)
   			self.send_chat_msg('%s is now in the DJ crew.' %_user. account)
-
 
     def do_dj_mode (self):
 	global dj_mode
@@ -1388,36 +1387,37 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_chat_msg('Account can\'t be blank.')
             elif len(verified_name) < 3:
                 self.send_chat_msg('Account too short: ' + str(len(verified_name)))
-            elif verified_name in pinylib.CONFIG.B_ACCOUNT_CHATADMIN:
+
+            elif self.user_check(verified_name) == 2:
                 self.send_chat_msg('%s is already in list.' % verified_name)
             else:
-                pinylib.file_handler.file_writer(self.config_path,
-                                                 pinylib.CONFIG.B_ACCOUNT_CHATADMIN_FILE_NAME,
-                                                 verified_name)
+
+		if self.user_check(verified_name) == 4 or self.user_check(verified_name) == 3 or self.user_check(verified_name) == 5:
+			db.dpop('users',verified_name)
+
+		user = {'level': 2,'by':self.active_user.account,'created':time.time()}
+		db.dadd('users',(verified_name, user))
+		db.dump()
+
 		if self.bot_master():
      	        	self.send_chat_msg('c1: %s is an admin now.' % verified_name)
 		else:
 			self.send_chat_msg('%s is an admin now.' % verified_name)
-
-	        self.load_list(chatadmin=True)
 
     def do_remove_chatadmin(self, verified_account):
         if self.is_client_mod:
             if len(verified_account) is 0:
                 self.send_chat_msg('Missing account.')
             else:
-                if verified_account in pinylib.CONFIG.B_ACCOUNT_CHATADMIN:
-                    rem = pinylib.file_handler.remove_from_file(self.config_path,
-                                                                pinylib.CONFIG.B_ACCOUNT_CHATADMIN_FILE_NAME,
-                                                                verified_account)
-                    if rem:
-			if self.bot_master():
-     	        		self.send_chat_msg('c2: %s was removed as an admin.' % verified_account)
-			else:
-				self.send_chat_msg('%s is not an admin anymore.' % verified_account)
 
-                        self.load_list(chatadmin=True)
+                if self.user_check(verified_account) == 2:
+		    db.dpop('users',verified_account)
+		    db.dump()
 
+		    if self.bot_master():
+			self.send_chat_msg('c2: %s was removed as an admin.' % verified_account)
+		    else:
+			self.send_chat_msg('%s is not an admin anymore.' % verified_account)
 
     def do_cam_approve(self, user_name):
         """
