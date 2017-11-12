@@ -159,7 +159,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 			_user.user_level = self.user_check(_user.account)
                		self.console_write(pinylib.COLOR['bright_red'], '[User] Found, level(%s)  %s:%d:%s' % (_user.user_level, _user.nick, _user.id, _user.account))
 
-		if _user.account is not None:
+		else:
 			_user.user_level = 6
                		self.console_write(pinylib.COLOR['bright_red'], '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
@@ -235,7 +235,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 		self.send_ban_msg(_user.id)
     				self.console_write(pinylib.COLOR['cyan'], '[Security] %s was banned on no guest mode' % (_user.nick))
 	
-    	self.console_write(pinylib.COLOR['cyan'], '%s:%d joined the room. (%s)' % (_user.nick, _user.id, joind_count))
+    	self.console_write(pinylib.COLOR['cyan'], '[Room] %s:%d joined the room. (%s)' % (_user.nick, _user.id, joind_count))
         threading.Thread(target=self.welcome, args=(_user.id,)).start()
      
     def welcome(self, uid):
@@ -1105,13 +1105,32 @@ class TinychatBot(pinylib.TinychatRTCClient):
         Forgive a user based on if their user id (uid) is found in the room's ban list.
         :param nick_name: str the nick name of the user that was banned.
         """
+	global banlist
+	forgiven = False
+
         if self.is_client_mod:
             if len(nick_name) is 0:
                 self.send_chat_msg(' Please state a nick to forgive from the ban list.')
 	    else:
-		    self.users.delete_banned_user(nick_name)
-                    self.send_chat_msg('*' + nick_name + '* has been forgiven.')
+	 	    for item in banlist['items']:
+			if item['nick'] == nick_name:	
+		    		self.users.delete_banned_user(item)
+				self.send_unban_msg(item['id'])
+				forgiven = True
+			else:
+                   		self.send_chat_msg(nick_name + ' was not found in the banlist')
+		    if forgiven:
+                   	self.send_chat_msg(nick_name + ' was forgiven.')
 
+    def on_banlist(self, banlist_info):
+	"""
+	Return json from servers 
+	"""
+
+	global banlist
+	banlist = banlist_info
+
+				
     def do_ban(self, user_name):
         """ 
         Ban a user from the room.
