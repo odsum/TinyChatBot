@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 # Pinylib RTC module, based on the POC by Notnola (https://github.com/notnola/TcRTC)
 
-
 import json
 import time
 import logging
 import traceback
 
 import websocket
-# import socket
 from colorama import init, Fore, Style
 
 import config
@@ -17,7 +15,7 @@ import apis.tinychat
 from page import acc
 from util import file_handler, string_util
 
-__version__ = '1.0.6'
+__version__ = '1.0.8'
 
 CONFIG = config
 init(autoreset=True)
@@ -64,6 +62,7 @@ class TinychatRTCClient(object):
         self.is_client_mod = False
         self.is_client_owner = False
         self._init_time = time.time()
+
         self.is_green_room = False
         self.is_connected = False
         self.users = user.Users()
@@ -140,8 +139,8 @@ class TinychatRTCClient(object):
     def disconnect(self):
         """ Disconnect from the server. """
         self.is_connected = False
-        #self._ws.send_close(status=1001, reason='GoingAway')
-        #self._ws.abort()  # not sure if this is actually needed.
+        self._ws.send_close(status=1001, reason='GoingAway')
+        self._ws.abort()  # not sure if this is actually needed.
         self._req = 1
         self._ws = None
         self.client_id = 0
@@ -412,7 +411,6 @@ class TinychatRTCClient(object):
         """
         _user = self.users.delete(uid)
         if _user is not None:
-            self.on_quitting(_user.id, _user.account)
             self.console_write(COLOR['cyan'], '%s:%s Left the room.' % (_user.nick, uid))
 
     def on_ban(self, ban_info):
@@ -534,8 +532,9 @@ class TinychatRTCClient(object):
         :type uid: int
         """
         _user = self.users.search(uid)
-        _user.is_broadcasting = False
-        self.console_write(COLOR['yellow'], '%s:%s stopped broadcasting.' % (_user.nick, uid))
+        if _user is not None:
+            _user.is_broadcasting = False
+            self.console_write(COLOR['yellow'], '%s:%s stopped broadcasting.' % (_user.nick, uid))
 
     def on_sysmsg(self, msg):
         """
@@ -592,7 +591,7 @@ class TinychatRTCClient(object):
             if _user is not None and config.DEBUG_MODE:
                 self.console_write(COLOR['bright_yellow'], '%s:%s\'s broadcast was closed.' % (_user.nick, _user.id))
         else:
-	    pass
+            log.error('failed to close a broadcast: %s' % moder_data['reason'])
 
     def on_yut_playlist(self, playlist_data):  # TODO: Needs more work.
         """
@@ -662,7 +661,7 @@ class TinychatRTCClient(object):
         :param yt_data: The event information contains the ID of the video, the time and so on.
         :type yt_data: dict
         """
-	pass
+        self.console_write(COLOR['bright_magenta'], 'The youtube (%s) was stopped.' % yt_data['item']['id'])
 
     # Message Construction.
     def send_join_msg(self):

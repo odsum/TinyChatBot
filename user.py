@@ -21,7 +21,9 @@ class User:
         self.nick = kwargs.get('nick', '')
         self.account = kwargs.get('username', '')
         self.giftpoints = kwargs.get('giftpoints', 0)
+        self.featured = kwargs.get('featured', False)
         self.subscription = kwargs.get('subscription', 0)
+        self.session_id = kwargs.get('session_id', '')
         self.achievement_url = kwargs.get('achievement_url', '')
         self.avatar = kwargs.get('avatar', '')
         self.is_lurker = kwargs.get('lurker', False)
@@ -219,6 +221,19 @@ class Users:
         return self._banned_users
 
     @property
+    def banned_users(self):
+        """
+        Returns a list of all the BannedUser objects.
+
+        :return: A list containing BannedUser objects.
+        :rtype: list
+        """
+        _banned_users = []
+        for banned_user in self.banlist:
+            _banned_users.append(self.banlist[banned_user])
+        return _banned_users
+
+    @property
     def banned_accounts(self):
         """
         Returns a list of BannedUser account name.
@@ -279,8 +294,20 @@ class Users:
             return self.banlist[ban_id]
         return None
 
-    def search_banlist_by_nick(self, nick):
-        pass
+    def search_banlist_containing(self, contains):
+        """
+        Search the banlist for user names matching the search str.
+
+        :param contains: The search term to search for.
+        :type contains: str
+        :return: A list of matches.
+        :rtype: list
+        """
+        _banned_containing = []
+        for user in self.banlist:
+            if str(contains) in self.banlist[user].nick:
+                _banned_containing.append(self.banlist[user])
+        return _banned_containing
 
     def search_banlist_by_req_id(self, req_id):
         """
