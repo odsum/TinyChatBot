@@ -5,20 +5,20 @@
 import time
 import logging
 import threading
+import os
 import pinylib
+from page import privacy
 from util import tracklist
 from apis import youtube, other, locals_
 from Crypto.Hash import MD5
 
-import socket
 import random
 from random import randint
 from datetime import datetime
-import base64
 
 import pickledb
 
-__version__ = '1.5-Buddy'
+__version__ = '2.0'
 
 log = logging.getLogger(__name__)
 
@@ -56,49 +56,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
     global lockdown  
     global userdb
     global db
-    global hub
-    global hub_host
-    global hub_port
-    global key
-
-
-    key = pinylib.CONFIG.B_HUB_KEY
 
     lockdown = False
     bots = False
     is_master = pinylib.CONFIG.B_IS_MASTER
 
-    hub = pinylib.CONFIG.B_BOT_HUB
-
-    if hub:
-        hub_host = pinylib.CONFIG.B_BOT_HUB_HOST
-        hub_port = pinylib.CONFIG.B_BOT_HUB_PORT
-        if hub_host == '':
-                hub_host = socket.gethostname()
-
-    def encode(self, clear):
-        enc = []
-        for i in range(len(clear)):
-                key_c = key[i % len(key)]
-                enc_c = chr((ord(clear[i]) + ord(key_c)) % 256)
-                enc.append(enc_c)
-        return base64.urlsafe_b64encode("".join(enc))
-
-    def decode(self, enc):
-        dec = []
-        enc = base64.urlsafe_b64decode(enc)
-        for i in range(len(enc)):
-                key_c = key[i % len(key)]
-                dec_c = chr((256 + ord(enc[i]) - ord(key_c)) % 256)
-                dec.append(dec_c)
-        return "".join(dec)
-
-    userdb = pinylib.CONFIG.CONFIG_PATH + 'fobcity' + '/' + 'user.db'
+    userdb = pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/' + 'user.db'
     db = pickledb.load(userdb, False)
-    #uncomment for first run to create the database
-    #db.dcreate('users')
-    #db.dcreate('badwords')
-    #db.dcreate('badnicks')
+
+    if not os.path.exists(userdb):
+    	db.dcreate('users')
+    	db.dcreate('badwords')
+    	db.dcreate('badnicks')
 
 
     def on_joined(self, client_info):
@@ -188,15 +157,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
                             if time_join - 180  > autoban_time:		
                                 
 
-				if hub and lockdown == 1:
+				if lockdown == 1:
 					soft = 1
 				    	self.do_lockdown(soft)
-				elif not hub and lockdown == 1:
-					if pinylib.CONFIG.B_ALLOW_GUESTS:		
-						self.do_guests()
-
-	  				self.send_chat_msg('a1: Fobcity is open to the public again.')
-					lockdown = False	
 
 				autoban_time = 0
                                 self.console_write(pinylib.COLOR['cyan'], 'Lockdown Mode Reset')
@@ -215,15 +178,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
                             
         	elif joind_count > maxjoins:
                            
-			if hub and lockdown == 0:
-				soft = 0
-				self.do_lockdown(soft)
-			elif not hub and lockdown == 0:
-				if pinylib.CONFIG.B_ALLOW_GUESTS:		
-					self.do_guests()
-					lockdown = True	
-                                	self.send_chat_msg('a0: Lockdown - No guest mode')
-
+			soft = 0
+			self.do_lockdown(soft)
 	                autoban_time = time_join
                         self.console_write(pinylib.COLOR['cyan'], 'Lockdown starte')
         	else:
@@ -269,95 +225,41 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	    		else:
 	            		_user.is_waiting = True
 		   		self.send_chat_msg('%s is waiting in the greenroom.' % (_user.nick))
-  
-    def do_push2talk(self):
-
-		if hub:
-		        cmd = 'donkeykong:0:0'
-			l = self.talk_hub(cmd)
-			if l == 'error':
-  				self.send_chat_msg('Request failed, Hub is offline!')
-			else:
-       				if int(l) == 0:
-  					self.send_chat_msg('Push to talk is enabled.')
-                			self.console_write(pinylib.COLOR['cyan'], 'Push2Talk Enabled.')
-       				else:
-  					self.send_chat_msg('Push to talk is disabled.')
-                			self.console_write(pinylib.COLOR['cyan'], 'Push2Talk Disabled.')
-
+   
 
     def do_lockdown(self, soft):
 
        		global password
        		global lockdown
 
-		if hub:
+		if self.is_client_owner:
 			if soft:
-				password = 'None'
+				password = None
 			else:
-				password = self.do_create_password()
+				password = self.do_create_password()				
 
-		        cmd = 'hellomonkey:'+password
-			l = self.talk_hub(cmd)
-
-			if l == 'error':
-  				self.send_chat_msg('Hub is offline, manual noguest mode.')
-				#fallback
-				if not lockdown:
-					if pinylib.CONFIG.B_ALLOW_GUESTS:
-	                			self.do_guests()
-					lockdown = True
-  					self.send_chat_msg('a0: Lockdown - no guests allowed')
-
+			if not self.privacy_.set_guest_mode():
+				self.privacy_.set_room_password(password)
+				lockdown = True
+				if soft:
+  					self.send_chat_msg('a0: Lockdown - no guests allowed.')
 				else:
-					if not pinylib.CONFIG.B_ALLOW_GUESTS:
-	                			self.do_guests()
+  					self.send_chat_msg('a0: Lockdown - tmp password is: %s' % (password))
+			else:
+				password = None
+				self.privacy_.set_room_password(password)
+				lockdown = False
+				self.send_chat_msg('a1: Fobcity is open to the public again.')
 
-					lockdown = False
-  					self.send_chat_msg('a1: Fobcity is open to the public again.')
+		else:
+  			if not pinylib.CONFIG.B_ALLOW_GUESTS:
+				lockdown = False
+				self.do_guests()
+				self.send_chat_msg('a1: Fobcity is open to the public again.')
 
 			else:
-       				if int(l) == 0:
-					time.sleep(1.0)
-					if soft:
-  						self.send_chat_msg('a0: Lockdown - no guests allowed')
-					else:
-  						self.send_chat_msg('a0: Lockdown - tmp password is: %s' % (password))
-	
-                			self.console_write(pinylib.COLOR['cyan'], 'Guest mode deactivated')
-					lockdown = True
-
-       				else:
-  					self.send_chat_msg('a1: Fobcity is open to the public again.')
-                			self.console_write(pinylib.COLOR['cyan'], 'Guest mode activated')
-					lockdown = False
-
-					if not pinylib.CONFIG.B_ALLOW_GUESTS:
-	                			self.do_guests()
-
-    def talk_hub(self, cmd):
-
-       	host = hub_host 
-       	port = hub_port
-
-       	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	cmd = self.encode(cmd)
-
-	try:
-		s.connect((host, port))
-	       	self.console_write(pinylib.COLOR['cyan'], '[Hub]: Trying to connect to %s:%s'% (host, port))
-	except socket.error, e:
-       		self.console_write(pinylib.COLOR['cyan'], '[Hub]: error:  %s' % (e))
-		data = 'error'
-	else:
-       		self.console_write(pinylib.COLOR['cyan'], '[Hub]: Sent request:  %s' % (cmd))
-       		s.send(cmd)
-       		data = s.recv(1024)
-       		s.close()
-	
-       	self.console_write(pinylib.COLOR['cyan'], '[Hub]: Recieved:  %s' % (data))
-
-	return data
+				self.do_guests()
+				self.send_chat_msg('a0: Lockdown - no guests allowed.')
 
     def on_nick(self, uid, nick):
         """
@@ -484,24 +386,27 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 	elif cmd == prefix + 'lockup':
                     		self.do_lockdown(0)
 
-            if _user.user_level < 3: 
+            if _user.user_level < 3:
+ 
 			if cmd == prefix + 'chatadmin':
                     		self.do_chatadmin(cmd_arg)
-                    	elif cmd == prefix + 'p2t':
-				pass
-                	elif cmd == prefix + 'greet':
-                    		self.do_greet()
-                	elif cmd == prefix == 'kb':
-                    		self.do_kick_as_ban()
-                        	self.do_push2talk()
-                	elif cmd == prefix + 'reboot':
-                    		self.do_reboot()
-                   	elif cmd == prefix + 'dir':
-                        	threading.Thread(target=self.do_directory).start()
-                    	elif cmd == prefix + 'amod':
-                        	threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
-                    	elif cmd == prefix + 'ramod':
-                        	threading.Thread(target=self.do_remove_mod, args=(cmd_arg,)).start()
+
+			if self.is_client_owner:
+
+                    		if cmd == prefix + 'p2t':
+					threading.Thread(target=self.do_push2talk).start()
+                		elif cmd == prefix + 'greet':
+                    			self.do_greet()
+                		elif cmd == prefix == 'kb':
+                    			self.do_kick_as_ban()
+                		elif cmd == prefix + 'reboot':
+                    			self.do_reboot()
+                   		elif cmd == prefix + 'dir':
+                        		threading.Thread(target=self.do_directory).start()
+                    		elif cmd == prefix + 'addmod':
+                        		threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
+                    		elif cmd == prefix + 'removemod':
+                        		threading.Thread(target=self.do_remove_mod, args=(cmd_arg,)).start()
 
             if _user.user_level < 5:
 
@@ -689,15 +594,71 @@ class TinychatBot(pinylib.TinychatRTCClient):
   		self.send_chat_msg('DJ mode is off, you can add to the youtube playlist now.')
 
     def do_make_mod(self, account):
-	pass
+        """
+        Make a tinychat account a room moderator.
+
+        :param account: The account to make a moderator.
+        :type account: str
+        """
+        if self.is_client_owner:
+            if len(account) is 0:
+                self.send_chat_msg('Missing account name.')
+            else:
+                tc_user = self.privacy_.make_moderator(account)
+                if tc_user is None:
+                    self.send_chat_msg('The account is invalid.')
+                elif not tc_user:
+                    self.send_chat_msg('%s is already a moderator.' % account)
+                elif tc_user:
+                    self.send_chat_msg('%s was made a room moderator.' % account)
+
     def do_remove_mod(self, account):
-	pass
+        """
+        Removes a tinychat account from the moderator list.
+
+        :param account: The account to remove from the moderator list.
+        :type account: str
+        """
+        if self.is_client_owner:
+            if len(account) is 0:
+                self.send_chat_msg('Missing account name.')
+            else:
+                tc_user = self.privacy_.remove_moderator(account)
+                if tc_user:
+                    self.send_chat_msg('%s is no longer a room moderator.' % account)
+                elif not tc_user:
+                    self.send_chat_msg('%s is not a room moderator.' % account)
+
     def do_directory(self):
-	pass
+        """ Toggles if the room should be shown on the directory. """
+        if self.is_client_owner:
+            if self.privacy_.show_on_directory():
+                self.send_chat_msg('Room IS shown on the directory.')
+            else:
+                self.send_chat_msg('Room is NOT shown on the directory.')
+
+    def do_push2talk(self):
+        """ Toggles if the room should be in push2talk mode. """
+        if self.is_client_owner:
+            if self.privacy_.set_push2talk():
+                self.send_chat_msg('Push2Talk is enabled.')
+            else:
+                self.send_chat_msg('Push2Talk is disabled.')
+
     def do_green_room(self):
-	pass
+        """ Toggles if the room should be in greenroom mode. """
+        if self.is_client_owner:
+            if self.privacy_.set_greenroom():
+                self.send_chat_msg('Green room is enabled.')
+            else:
+                self.send_chat_msg('Green room is disabled.')
+
     def do_clear_room_bans(self):
-	pass
+        """ Clear all room bans. """
+        if self.is_client_owner:
+            if self.privacy_.clear_bans():
+                self.send_chat_msg('All room bans was cleared.')
+
     def do_kill(self):
         """ Kills the bot. """
         self.disconnect()
@@ -1663,11 +1624,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         # The rest is a command argument.
         pm_arg = ' '.join(pm_parts[1:]).strip()
 
-        if self.has_level(1):
-            if self.is_client_owner:
-                pass
+        if self.is_client_owner:
 
-	    elif pm_cmd == prefix + 'help':
+	    if pm_cmd == prefix + 'help':
                 self.do_help()
             elif pm_cmd == prefix + 'clrbn':
                 self.do_clear_bad_nicks()
@@ -1725,35 +1684,29 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def options(self):
         """ Load/set special options. """
+	global bot_id
+
         log.info('options: is_client_owner: %s, is_client_mod: %s' % (self.is_client_owner, self.is_client_mod))
 
-        if self.is_client_mod:
-        	self.send_banlist_msg()
+	if self.is_client_owner:
+            self.get_privacy_settings()
 
 	who_am_i = '['+str(self.account)+']'
         h = MD5.new()
         h.update(who_am_i)
          
-	global bot_id
+        if self.is_client_mod:
+        	self.send_banlist_msg()
 
         bot_id = h.hexdigest()
 	self.send_chat_msg('YABUDDY - '+str(bot_id))
 
+    def get_privacy_settings(self):
+        """ Parse the privacy settings page. """
+        log.info('Parsing %s\'s privacy page.' % self.account)
+        self.privacy_ = privacy.Privacy(proxy=None)
+        self.privacy_.parse_privacy_settings()
 
-    def has_level(self, level):
-        """ 
-        Checks the active user for correct user level.
-
-        :param level: The level to check the active user against.
-        :type level: int
-        :return: True if the user has correct level, else False
-        :rtype: bool
-        """
-        if self.active_user.user_level == 6:
-            return False
-        elif self.active_user.user_level <= level:
-            return True
-        return False
 
     @staticmethod
     def format_time(time_stamp, is_milli=False):

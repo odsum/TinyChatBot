@@ -10,7 +10,7 @@ All database related items moved to using pickledb, uncomment the right section 
 - Spam Protection
 	- On Join flooding
 	- Spam Repeat text
-	- Hub communication to lockdown the room with a randomized Password
+	- Lockdown with password or no guest mode
 
 - Verification System
 	- Verified Accounts can control youtube and auto-cam'ed by bot
@@ -22,17 +22,6 @@ All database related items moved to using pickledb, uncomment the right section 
 - Chat Mods
 	- Chat moderations can !kick and !ban, other mod cmds
 
-- Hub System
-	- Keep the main room account offline and communicates lockdown and lockup, push to talk
-	
-	To enable:
-	B_BOT_HUB = True
-	B_BOT_HUB_HOST = ''
-	B_BOT_HUB_PORT = 1337
-	B_HUB_KEY = '12345678' 
-	
-	run /hub/bot.py
-
 - Dual Bot System, basic zero-configuration approach
 	- If more than one bot, the functionality for media is given to the not Master bot
 		
@@ -41,9 +30,7 @@ All database related items moved to using pickledb, uncomment the right section 
 
 - Things to do
 	- Chat log analytics
-	- Hub system to include add and remove Moderators 
 	- Administrator user level which allow admin defined users to access Add/Remove Monderators
-	- unban, !forgive is not working
 	- Clean up code, move on_join checking to another function
 	- Vote Banning System
 	- Update to python 3
