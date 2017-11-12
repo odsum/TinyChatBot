@@ -1055,7 +1055,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
                         self.send_chat_msg('No user named: %s' % user_name)
- 		    elif _user.user_level == 3 or _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:
+ 		    elif _user.user_level > self.active_user.user_level:
                         self.send_chat_msg('imma let ya guys figure that out...')
                     else:
                         self.send_kick_msg(_user.id)
@@ -1116,7 +1116,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
                         self.send_chat_msg('No user named: %s' % user_name)
-		    elif _user.user_level == 3 or _user.account in pinylib.CONFIG.B_ACCOUNT_CHATMOD:        
+		    elif _user.user_level > self.active_user.user_level:       
                         self.send_chat_msg('i dont wanna be a part of ya problems..')
                     else:
                         self.send_ban_msg(_user.id)
