@@ -39,6 +39,9 @@ spammer = 0
 djs = []
 dj_mode = 0
 
+#Random password words
+_KEYWORDS = ["fob","fobcity","terima","halal","haram","roses",]
+
 
 class TinychatBot(pinylib.TinychatRTCClient):
     privacy_ = None
@@ -70,6 +73,47 @@ class TinychatBot(pinylib.TinychatRTCClient):
     	db.dcreate('badnicks')
 
 
+    def isWord(self, word):
+
+   	VOWELS = "aeiou"
+    	PHONES = ['sh', 'ch', 'ph', 'sz', 'cz', 'sch', 'rz', 'dz']
+	prevVowel = False
+
+    	if word:
+        	consecutiveVowels = 0
+        	consecutiveConsonents = 0
+        	for idx, letter in enumerate(word.lower()):
+            		vowel = True if letter in VOWELS else False
+
+            		if idx:
+                		prev = word[idx-1]               
+                		if prev in VOWELS:
+					prevVowel = True
+                		if not vowel and letter == 'y' and not prevVowel:
+                    			vowel = True
+
+                	if prevVowel != vowel:
+                    		consecutiveVowels = 0
+                    		consecutiveConsonents = 0
+
+            		if vowel:
+                		consecutiveVowels += 1
+            		else:
+                		consecutiveConsonents +=1
+
+            		if consecutiveVowels >= 3 or consecutiveConsonents > 3:
+                		return False
+
+            		if consecutiveConsonents == 3:
+                		subStr = word[idx-2:idx+1]
+               			if any(phone in subStr for phone in PHONES):
+                    			consecutiveConsonents -= 1
+                    			continue    
+                		return False                
+
+    	return True
+
+
     def on_joined(self, client_info):
         """
         Received when the client have joined the room successfully.
@@ -83,7 +127,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.is_client_owner = client_info['owner']
         client = self.users.add(client_info)
         client.user_level = 3
-        self.console_write(pinylib.COLOR['bright_green'], 'Client joined the room: %s:%s' % (client.nick, client.id))
+        self.console_write(pinylib.COLOR['bright_green'], '[User] Client joined the room: %s:%s' % (client.nick, client.id))
 
         threading.Thread(target=self.options).start()
 
@@ -104,6 +148,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         log.info('user join info: %s' % join_info)
         _user = self.users.add(join_info)
+		
+	if not self.isWord(_user.nick) and joind_count > 2:
+		self.send_ban_msg(_user.id)
+		self.console_write(pinylib.COLOR['cyan'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))	
 
 	if self.nick_check(_user.nick):
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
@@ -136,8 +184,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     	if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                         	self.send_kick_msg(_user.id)
                     	else:
-                        	self.send_ban_msg(_user.id
-)
+                        	self.send_ban_msg(_user.id)
 			self.console_write(pinylib.COLOR['cyan'], '[Security] Banned: Account %s' % (_user.account))
 
                 else:
@@ -162,7 +209,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				    	self.do_lockdown(soft)
 
 				autoban_time = 0
-                                self.console_write(pinylib.COLOR['cyan'], 'Lockdown Mode Reset')
+                                self.console_write(pinylib.COLOR['cyan'], '[Security] Lockdown Mode Reset')
 	else:
 
 		maxtime = 10
@@ -181,7 +228,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 			soft = 0
 			self.do_lockdown(soft)
 	                autoban_time = time_join
-                        self.console_write(pinylib.COLOR['cyan'], 'Lockdown starte')
+                        self.console_write(pinylib.COLOR['cyan'], '[Security] Lockdown started')
         	else:
                         joind_count += 1
 
@@ -191,7 +238,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 		self.send_ban_msg(_user.id)
     				self.console_write(pinylib.COLOR['cyan'], '[Security] %s was banned on no guest mode' % (_user.nick))
 	
-    	self.console_write(pinylib.COLOR['cyan'], '[Room] %s:%d joined the room. (%s)' % (_user.nick, _user.id, joind_count))
+    	self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (_user.nick, _user.id, joind_count))
         threading.Thread(target=self.welcome, args=(_user.id,)).start()
      
     def welcome(self, uid):
@@ -210,11 +257,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
 							pass 	
 							#self.send_private_msg(_user.id, 'You are verified, you add to the Youtube social playlist via !yt - Other cmds type !help')
 						elif _user.user_level == 6:
-							#self.send_private_msg(_user.id, 'Welcome to Fobcity - ask to have your account verified.')
-							self.send_chat_msg('Welcome to Fobcity %s - ask to have your account verified.' % (_user.nick))
+							#self.send_private_msg(_user.id, 'Welcome to %s - ask to have your account verified.' % (self.room_name))
+							self.send_chat_msg('Welcome to %s %s - ask to have your account verified.' % (self.room_name, _user.nick))
                 				elif _user.user_level == 7:
-							#self.send_private_msg(_user.id, 'Welcome to Fobcity - we suggest making an account, personal info trolling or sexual harassment will not be tolerated.')
-							self.send_chat_msg('Welcome to Fobcity %s, we suggest making an account.' % (_user.nick))
+							#self.send_private_msg(_user.id, 'Welcome to %s - we suggest making an account, personal info trolling or sexual harassment will not be tolerated.' % (self.room_name))
+							self.send_chat_msg('Welcome to %s %s, we suggest making an account.' % (self.room_name, _user.nick))
 
     def on_pending_moderation(self, pending):
 	if not self.bot_master():
@@ -249,13 +296,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				password = None
 				self.privacy_.set_room_password(password)
 				lockdown = False
-				self.send_chat_msg('a1: Fobcity is open to the public again.')
+				self.send_chat_msg('a1: %s is open to the public again.' % (self.room_name))
 
 		else:
   			if not pinylib.CONFIG.B_ALLOW_GUESTS:
 				lockdown = False
 				self.do_guests()
-				self.send_chat_msg('a1: Fobcity is open to the public again.')
+				self.send_chat_msg('a1: %s is open to the public again.' % (self.room_name))
 
 			else:
 				self.do_guests()
@@ -282,7 +329,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     self.send_ban_msg(uid)
 
-                self.console_write(pinylib.COLOR['bright_cyan'], '%s:%s Changed nick to: %s' %
+                self.console_write(pinylib.COLOR['bright_cyan'], '[User] %s:%s Changed nick to: %s' %
                                    (old_nick, uid, nick))
 
     def on_yut_play(self, yt_data):
@@ -309,7 +356,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             _youtube = youtube.video_details(yt_data['item']['id'], False)
             self.playlist.start(user_nick, _youtube)
             self.timer(self.playlist.track.time)
-            self.console_write(pinylib.COLOR['bright_magenta'], '%s started youtube video (%s)' %
+            self.console_write(pinylib.COLOR['bright_magenta'], '[Media] %s started youtube video (%s)' %
                                (user_nick, yt_data['item']['id']))
         elif yt_data['item']['offset'] > 0:
             if user_nick == 'n/a':
@@ -320,7 +367,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             else:
                 offset = self.playlist.play(yt_data['item']['offset'])
                 self.timer(offset)
-                self.console_write(pinylib.COLOR['bright_magenta'], '%s searched the youtube video to: %s' %
+                self.console_write(pinylib.COLOR['bright_magenta'], '[Media] %s searched the youtube video to: %s' %
                                    (user_nick, int(round(yt_data['item']['offset']))))
 
 
@@ -342,7 +389,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if self.playlist.has_active_track:
                     self.cancel_timer()
                 self.playlist.pause()
-                self.console_write(pinylib.COLOR['bright_magenta'], '%s paused the video at %s' %
+                self.console_write(pinylib.COLOR['bright_magenta'], '[Media] %s paused the video at %s' %
                                    (_user.nick, int(round(yt_data['item']['offset']))))
 	
     def bot_master(self):
@@ -779,7 +826,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         tracks = youtube.playlist_videos(self.search_list[int_choice])
                         if len(tracks) > 0:
                             self.playlist.add_list(self.active_user.nick, tracks)
-                            self.send_chat_msg('Added %s tracks from youtube playlist.' % len(tracks))
+                            self.send_chat_msg('🎶 Added %s tracks from youtube playlist.' % len(tracks))
                             if not self.playlist.has_active_track:
                                 track = self.playlist.next_track
                                 self.send_yut_play(track.id, track.time, track.title)
@@ -802,7 +849,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             else:
                 _ = '\n'.join('(%s) %s %s' % (i, d['video_title'], self.format_time(d['video_time']))
                               for i, d in enumerate(self.search_list))
-                self.send_chat_msg('Youtube Tracks\n' + _)
+                self.send_chat_msg('🎶 Youtube Tracks\n' + _)
 
     def do_skip(self):
         """ Skip to the next item in the playlist. """
@@ -865,7 +912,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         self.send_chat_msg('Nothing was deleted.')
 
     def do_create_password(self):
-	_KEYWORDS = ["fob","fobcity","terima","halal","haram","roses",]
+	global _KEYWORDS
 	word = random.choice(_KEYWORDS)	
 	numbers = str(randint(100, 999))			
 	xpassword = word+numbers
@@ -1013,7 +1060,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def do_clear(self):
         """ Clears the chat box. """
-        self.send_chat_msg('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n Fobcity Bitch!'
+        self.send_chat_msg('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'
                            '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
 
     def do_nick(self, new_nick):
@@ -1055,7 +1102,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
                         self.send_chat_msg('No user named: %s' % user_name)
- 		    elif _user.user_level > self.active_user.user_level:
+ 		    elif _user.user_level < self.active_user.user_level:
                         self.send_chat_msg('imma let ya guys figure that out...')
                     else:
                         self.send_kick_msg(_user.id)
@@ -1116,7 +1163,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
                         self.send_chat_msg('No user named: %s' % user_name)
-		    elif _user.user_level > self.active_user.user_level:       
+		    elif _user.user_level < self.active_user.user_level:       
                         self.send_chat_msg('i dont wanna be a part of ya problems..')
                     else:
                         self.send_ban_msg(_user.id)
@@ -1637,13 +1684,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
             elif pm_cmd == prefix + 'clrba':
                 self.do_clear_bad_accounts()
 
-        self.console_write(pinylib.COLOR['white'], 'Private message from %s: %s' % (self.active_user.nick, private_msg))
+        self.console_write(pinylib.COLOR['white'], '[MSG] Private message from %s: %s' % (self.active_user.nick, private_msg))
 
     def on_quitting(self, uid, account):
 
         if account in botnet:
              botnet.remove(account)
-             self.console_write(pinylib.COLOR['bright_yellow'], 'Bot: %s unregistered.' % (account))
+             self.console_write(pinylib.COLOR['bright_yellow'], '[Botnet] Bot: %s unregistered.' % (account))
              del botnet[:]
              bots = False
 
@@ -1744,33 +1791,47 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	global lastmsgs
 	global spam
 	global spammer
-    	global model_mat
-    	global threshold
 
         should_be_banned = False
 	is_a_spammer = False
 
         chat_words = msg.split(' ')
-	
+
+	# if flooded or a long text
+
+	total = sum(char.isspace() or char == "0" for char in msg)
+
+	if total > 140 and self.active_user.nick == spammer:
+		spammer = 0
+		self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Spam - banned %s.' % (self.active_user.nick))
+		if self.active_user.user_level > 4:
+			self.send_ban_msg(self.active_user.id)
+	elif total > 140:	
+		spammer = self.active_user.nick
+		self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Spam: Long message - %s by %s' % (total, self.active_user.nick))
+		if self.active_user.user_level > 4:
+			self.send_kick_msg(self.active_user.id)	
+
         for word in chat_words:
 	    if self.word_check(word):
 		should_be_banned = True
+
 
 	if self.active_user.user_level > 5:
 	
 			if len(lastmsgs) is 0:
 				lastmsgs.append(msg)
-				self.console_write(pinylib.COLOR['bright_yellow'], 'Spam: Protection on.')
+				self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Spam: Protection on.')
 
 			else:	
 				msg_count = str(len(lastmsgs))
-				self.console_write(pinylib.COLOR['bright_yellow'], 'Spam: Processing - %s' % (msg_count))
+				self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Spam: Processing - %s' % (msg_count))
 
 				if msg in lastmsgs:
 					spam += 1
 					lastmsgs.append(msg)
 					spammer = self.active_user.nick
-					self.console_write(pinylib.COLOR['bright_yellow'], 'Spam: Found Spammer %s' % (self.active_user.nick))
+					self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Spam: Found Spammer %s' % (self.active_user.nick))
 				else: 
 					lastmsgs.append(msg)
 
@@ -1787,7 +1848,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				lastmsgs = []
 				spam = 0
 				spammer = 0
-				self.console_write(pinylib.COLOR['bright_yellow'], 'Spam: Resetting last message db.')
+				self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Spam: Resetting last message db.')
 
 	if should_be_banned:
 			if self.active_user.user_level == 6:
@@ -1800,7 +1861,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 					is_a_spammer = False
 				self.send_ban_msg(self.active_user.id)
 
-			self.console_write(pinylib.COLOR['cyan'], 'Spam: Flood, Repeat or Badword by %s' % (self.active_user.nick))
+			self.console_write(pinylib.COLOR['cyan'], '[Security] Spam: Flood, Repeat or Badword by %s' % (self.active_user.nick))
 
     def check_lockstatus(self, msg):
            
@@ -1819,7 +1880,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             for word in chat_words:
                 if word in AUTH_KEYWORDS:
 
-		    self.console_write(pinylib.COLOR['bright_yellow'], 'Bot: Auth request: %s' % (self.active_user.nick))
+		    self.console_write(pinylib.COLOR['bright_yellow'], '[Botnet] Bot: Auth request: %s' % (self.active_user.nick))
                     if self.active_user.account != self.account and self.active_user.user_level == 3 or self.active_user.user_level == 1:
 
                         who_is = '['+str(self.active_user.account)+']'
@@ -1835,7 +1896,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 				pass
                             else:
 				botnet.append(self.active_user.account)
-                                self.console_write(pinylib.COLOR['bright_yellow'], 'Bot: %s registered.' % (self.active_user.nick))
+                                self.console_write(pinylib.COLOR['bright_yellow'], '[Botnet] Bot: %s registered.' % (self.active_user.nick))
                                 bots = True 
 				if word == "ehyo":
 					pass
@@ -1847,7 +1908,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     if self.active_user.account != self.account and self.active_user.user_level == 3 or self.active_user.user_level == 1:
                         if self.active_user.account in botnet:
 			    lockdown = True
-                            self.console_write(pinylib.COLOR['bright_yellow'], 'Lockdown started by %s' % (self.active_user.nick))
+                            self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Lockdown started by %s' % (self.active_user.nick))
                         else:
                             self.send_chat_msg('hmm, should i do something?')
 
@@ -1855,7 +1916,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     if self.active_user.account != self.account and self.active_user.user_level == 3 or self.active_user.user_level == 1:
                         if self.active_user.account in botnet:
 			    lockdown = False
-                            self.console_write(pinylib.COLOR['bright_yellow'], 'Lockdown reset by %s' % (self.active_user.nick))  
+                            self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Lockdown reset by %s' % (self.active_user.nick))  
                         else:
                             self.send_chat_msg('its over but i am not sure')
 
