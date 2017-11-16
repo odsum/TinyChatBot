@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 joind_time = 0
 joind_count = 0
+bad_nick = 0
 autoban_time = 0
 autoban_count = 0
 newnick = 0
@@ -143,16 +144,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
         global joind_count
         global autoban_time
 	global lockdown
+	global bad_nick
 
         time_join = time.time()
 
         log.info('user join info: %s' % join_info)
         _user = self.users.add(join_info)
 		
-	if not self.isWord(_user.nick) and joind_count > 2:
-		self.send_ban_msg(_user.id)
-		self.console_write(pinylib.COLOR['cyan'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))	
-
 	if self.nick_check(_user.nick):
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                 	self.send_kick_msg(_user.id)
@@ -198,30 +196,27 @@ class TinychatBot(pinylib.TinychatRTCClient):
 			_user.user_level = 7
 			self.console_write(pinylib.COLOR['bright_red'], '[User] Guest %s:%d' % (_user.nick, _user.id))
 
-	# if the room was flooded
-        if lockdown and self.is_client_mod and autoban_time != 0:
-
-                            if time_join - 180  > autoban_time:		
-                                
-
-				if lockdown == 1:
-					soft = 1
-				    	self.do_lockdown(soft)
-
+        if lockdown and autoban_time != 0:
+		if time_join - 240  > autoban_time:		
+			if lockdown == 1:
+				soft = 1
+				self.do_lockdown(soft)
 				autoban_time = 0
+				bad_nick = 0
                                 self.console_write(pinylib.COLOR['cyan'], '[Security] Lockdown Mode Reset')
 	else:
 
-		maxtime = 10
-       		maxjoins = 7
+		maxtime = 7
+       		maxjoins = 8
         			
         	if joind_time == 0:
 			joind_time  = time.time()
 			joind_count += 1
-
+			
         	elif time_join - joind_time > maxtime:
 			joind_count = 0
 			joind_time  = 0
+			bad_nick = 0
                             
         	elif joind_count > maxjoins:
                            
@@ -231,6 +226,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         self.console_write(pinylib.COLOR['cyan'], '[Security] Lockdown started')
         	else:
                         joind_count += 1
+			
+		if not self.isWord(_user.nick):
+			bad_nick += 1
+		
+		if bad_nick > 3:
+			self.send_ban_msg(_user.id)
+			self.console_write(pinylib.COLOR['cyan'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))	
 
 	if not pinylib.CONFIG.B_ALLOW_GUESTS:		
 		if not self.bot_master():         
