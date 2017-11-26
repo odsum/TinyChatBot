@@ -5,6 +5,7 @@ import json
 import time
 import logging
 import traceback
+import sys
 
 import websocket
 from colorama import init, Fore, Style
@@ -15,7 +16,12 @@ import apis.tinychat
 from page import acc
 from util import file_handler, string_util
 
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 __version__ = '1.0.8'
+
+#Disconnect Fixes from Gang (#Cancer)
 
 CONFIG = config
 init(autoreset=True)
@@ -77,6 +83,7 @@ class TinychatRTCClient(object):
         :param color: the colorama color representation.
         :param message: str the message to write.
         """
+	msg_encoded = message.encode('utf-8', 'replace')
         if config.USE_24HOUR:
             ts = time.strftime('%H:%M:%S')
         else:
@@ -84,7 +91,8 @@ class TinychatRTCClient(object):
         if config.CONSOLE_COLORS:
             msg = COLOR['white'] + '[' + ts + '] ' + Style.RESET_ALL + color + message
         else:
-            msg = '[' + ts + '] ' + message
+            #msg = '[' + ts + '] ' + message
+            msg = '[' + ts + '][' + self.room_name +'] ' + msg_encoded
         try:
             print(msg)
         except UnicodeEncodeError as ue:
@@ -94,6 +102,7 @@ class TinychatRTCClient(object):
 
         if config.CHAT_LOGGING:
             write_to_log('[' + ts + '] ' + message, self.room_name)
+
 
     def login(self):
         """ 
@@ -136,11 +145,24 @@ class TinychatRTCClient(object):
                 self.is_connected = True
                 self.__callback()
 
+ 	try:
+            if self._ws.connected:
+                log.info('connecting to: %s' % self.room_name)
+                if self.send_join_msg():
+                    self.is_connected = True
+                    self.__callback()
+        except:
+            traceback.print_exc()
+            self.console_write(COLOR['bright_red'], 'Reconnecting in 3 seconds...')
+            time.sleep(3)
+            self.reconnect()
+
+
     def disconnect(self):
         """ Disconnect from the server. """
         self.is_connected = False
-        self._ws.send_close(status=1001, reason='GoingAway')
-        self._ws.abort()  # not sure if this is actually needed.
+        #self._ws.send_close(status=1001, reason='GoingAway')
+        #self._ws.abort()  # not sure if this is actually needed.
         self._req = 1
         self._ws = None
         self.client_id = 0

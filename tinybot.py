@@ -231,9 +231,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
 			bad_nick += 1
 		
 		if bad_nick > 3:
+			time.sleep(1.0)
+		        #if self.user_check(_user.account) == 6 and self.is_client_mod:	
+		 	#	self.do_bad_account(_user.account)
+			# spam accounts will make database file too big, maybe a different db file is needed 
 			self.send_ban_msg(_user.id)
 			self.console_write(pinylib.COLOR['cyan'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))	
-
+		
+		
 	if not pinylib.CONFIG.B_ALLOW_GUESTS:		
 		if not self.bot_master():         
                 	if _user.user_level == 7:
