@@ -7,18 +7,17 @@ import logging
 import threading
 import os
 import pinylib
+
 from page import privacy
 from util import tracklist
 from apis import youtube, other, locals_
-from Crypto.Hash import MD5
 
 import random
 from random import randint
-from datetime import datetime
 
 import pickledb
 
-__version__ = '2.0'
+__version__ = '2.0.1'
 
 log = logging.getLogger(__name__)
 
@@ -28,12 +27,7 @@ bad_nick = 0
 autoban_time = 0
 autoban_count = 0
 newnick = 0
-botnet = []
 ban_time = 0
-vote_id = 0
-vote_time = 0
-vote_count = 0
-voters = 0
 lastmsgs = []
 spam = 0
 spammer = 0
@@ -55,15 +49,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """ Returns the path to the rooms configuration directory. """
         return pinylib.CONFIG.CONFIG_PATH + self.room_name + '/'
     
-    global bots
-    global is_master
     global lockdown  
     global userdb
     global db
 
     lockdown = False
-    bots = False
-    is_master = pinylib.CONFIG.B_IS_MASTER
 
     userdb = pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/' + 'user.db'
     db = pickledb.load(userdb, False)
@@ -240,10 +230,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		
 		
 	if not pinylib.CONFIG.B_ALLOW_GUESTS:		
-		if not self.bot_master():         
-                	if _user.user_level == 7:
-                		self.send_ban_msg(_user.id)
-    				self.console_write(pinylib.COLOR['cyan'], '[Security] %s was banned on no guest mode' % (_user.nick))
+                if _user.user_level == 7:
+                	self.send_ban_msg(_user.id)
+    			self.console_write(pinylib.COLOR['cyan'], '[Security] %s was banned on no guest mode' % (_user.nick))
 	
     	self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (_user.nick, _user.id, joind_count))
         threading.Thread(target=self.welcome, args=(_user.id,)).start()
@@ -255,30 +244,28 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	if _user is not None: 
 		if pinylib.CONFIG.B_ALLOW_GUESTS:
         		if pinylib.CONFIG.B_GREET and _user is not None:
-				if not self.bot_master():         
-            				if not _user.nick.startswith('guest-'):
-						if _user.user_level < 4:
-							pass
-							#self.send_private_msg(_user.id, 'You have Mod access - !help')
-						elif _user.user_level == 5:
-							pass 	
-							#self.send_private_msg(_user.id, 'You are verified, you add to the Youtube social playlist via !yt - Other cmds type !help')
-						elif _user.user_level == 6:
-							#self.send_private_msg(_user.id, 'Welcome to %s - ask to have your account verified.' % (self.room_name))
-							self.send_chat_msg('Welcome to %s %s - ask to have your account verified.' % (self.room_name, _user.nick))
-                				elif _user.user_level == 7:
-							#self.send_private_msg(_user.id, 'Welcome to %s - we suggest making an account, personal info trolling or sexual harassment will not be tolerated.' % (self.room_name))
-							self.send_chat_msg('Welcome to %s %s, we suggest making an account.' % (self.room_name, _user.nick))
+            			if not _user.nick.startswith('guest-'):
+					if _user.user_level < 4:
+						pass
+						#self.send_private_msg(_user.id, 'You have Mod access - !help')
+					elif _user.user_level == 5:
+						pass 	
+						#self.send_private_msg(_user.id, 'You are verified, you add to the Youtube social playlist via !yt - Other cmds type !help')
+					elif _user.user_level == 6:
+						#self.send_private_msg(_user.id, 'Welcome to %s - ask to have your account verified.' % (self.room_name))
+						self.send_chat_msg('Welcome to %s %s - ask to have your account verified.' % (self.room_name, _user.nick))
+                			elif _user.user_level == 7:
+						#self.send_private_msg(_user.id, 'Welcome to %s - we suggest making an account, personal info trolling or sexual harassment will not be tolerated.' % (self.room_name))
+						self.send_chat_msg('Welcome to %s %s, we suggest making an account.' % (self.room_name, _user.nick))
 
     def on_pending_moderation(self, pending):
-	if not self.bot_master():
-        	_user = self.users.search(pending['handle'])
-        	if _user is not None:
-            		if self.user_check(_user.account) == 5 or self.user_check(_user.account) == 4:
-		   		self.send_cam_approve_msg( _user.id)
-	    		else:
-	            		_user.is_waiting = True
-		   		self.send_chat_msg('%s is waiting in the greenroom.' % (_user.nick))
+        _user = self.users.search(pending['handle'])
+        if _user is not None:
+            	if self.user_check(_user.account) == 5 or self.user_check(_user.account) == 4:
+	   		self.send_cam_approve_msg( _user.id)
+    		else:
+	           	_user.is_waiting = True
+		   	self.send_chat_msg('%s is waiting in the greenroom.' % (_user.nick))
    
 
     def do_lockdown(self, soft):
@@ -399,13 +386,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.console_write(pinylib.COLOR['bright_magenta'], '[Media] %s paused the video at %s' %
                                    (_user.nick, int(round(yt_data['item']['offset']))))
 	
-    def bot_master(self):
-        global bots
-	global is_master	
-	if bots == 1 and is_master == 1:
-		return True
-	else:
-		return False
 
     def message_handler(self, msg):
         """
@@ -464,8 +444,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if _user.user_level < 5:
 
- 		if not self.bot_master():
-     
 	        	if cmd == prefix + 'mod':
                     		self.do_op_user(cmd_arg)
                 	elif cmd == prefix + 'who':
@@ -501,8 +479,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 	elif cmd == prefix + 'rmbada':
                     		self.do_remove_bad_account(cmd_arg)
  
-		if not self.bot_master():
-
                       	if cmd == prefix + 'dj':
                     		threading.Thread(target=self.do_dj, args=(cmd_arg,)).start()
                 	elif cmd == prefix + 'djmode':
@@ -510,114 +486,111 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
 	    if _user.user_level < 6:
 
-				if dj_mode and _user.account not in djs:
-					isdj = 1
-				elif dj_mode and _user.account in djs:
-					isdj = 0					
+			if dj_mode and _user.account not in djs:
+				isdj = 1
+			elif dj_mode and _user.account in djs:
+				isdj = 0					
 
-				if not self.bot_master():
 
-	                  		if cmd == prefix + 'skip':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-							self.do_skip()
-                			elif cmd == prefix + 'media':
-                    				self.do_media_info()
-                			elif cmd == prefix + 'yt':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					threading.Thread(target=self.do_play_youtube, args=(cmd_arg,)).start()
-               				elif cmd == prefix + 'yts':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					threading.Thread(target=self.do_youtube_search, args=(cmd_arg,)).start()
-                			elif cmd == prefix + 'del':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					self.do_delete_playlist_item(cmd_arg)
-                			elif cmd == prefix + 'replay':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					self.do_media_replay()
-                			elif cmd == prefix + 'play':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					self.do_play_media()
-                			elif cmd == prefix + 'pause':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					self.do_media_pause()
-                			elif cmd == prefix + 'seek':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					self.do_seek_media(cmd_arg)
-                			elif cmd == prefix + 'stop':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					self.do_close_media()
-                			elif cmd == prefix + 'reset':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                    					self.do_clear_playlist()
-	            			elif cmd == prefix + 'next':
-						if dj_mode and isdj:
-  							self.send_chat_msg('%s, Focbity is in DJ mode, current djs are: %s' % (self.active_user.nick, str(djs)))
-						elif dj_mode and not isdj or not dj_mode:
-                 					self.do_next_tune_in_playlist()
+	                if cmd == prefix + 'skip':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+					self.do_skip()
+               		elif cmd == prefix + 'media':
+                   			self.do_media_info()
+                	elif cmd == prefix + 'yt':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			threading.Thread(target=self.do_play_youtube, args=(cmd_arg,)).start()
+               		elif cmd == prefix + 'yts':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			threading.Thread(target=self.do_youtube_search, args=(cmd_arg,)).start()
+                	elif cmd == prefix + 'del':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			self.do_delete_playlist_item(cmd_arg)
+                	elif cmd == prefix + 'replay':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			self.do_media_replay()
+                	elif cmd == prefix + 'play':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			self.do_play_media()
+                	elif cmd == prefix + 'pause':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			self.do_media_pause()
+                	elif cmd == prefix + 'seek':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			self.do_seek_media(cmd_arg)
+                	elif cmd == prefix + 'stop':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			self.do_close_media()
+                	elif cmd == prefix + 'reset':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                    			self.do_clear_playlist()
+	            	elif cmd == prefix + 'next':
+				if dj_mode and isdj:
+  					self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (self.active_user.nick, self.room_name, str(djs)))
+				elif dj_mode and not isdj or not dj_mode:
+                 			self.do_next_tune_in_playlist()
+                	elif cmd == prefix + 'playlist':
+                    		self.do_playlist_info()
+                	elif cmd == prefix + 'pyts':
+                    		self.do_play_youtube_search(cmd_arg)
+                	elif cmd == prefix + 'pls':
+                    		threading.Thread(target=self.do_youtube_playlist_search, args=(cmd_arg,)).start()
+                	elif cmd == prefix + 'plp':
+                    		threading.Thread(target=self.do_play_youtube_playlist, args=(cmd_arg,)).start()
+                	elif cmd == prefix + 'ssl':
+                    		self.do_show_search_list()
+                	elif cmd == prefix + 'help':
+                    		self.do_help()
+                	elif cmd == prefix + 'whatsong':
+                    		self.do_now_playing()
 
-                			elif cmd == prefix + 'playlist':
-                    				self.do_playlist_info()
-                			elif cmd == prefix + 'pyts':
-                    				self.do_play_youtube_search(cmd_arg)
-                			elif cmd == prefix + 'pls':
-                    				threading.Thread(target=self.do_youtube_playlist_search, args=(cmd_arg,)).start()
-                			elif cmd == prefix + 'plp':
-                    				threading.Thread(target=self.do_play_youtube_playlist, args=(cmd_arg,)).start()
-                			elif cmd == prefix + 'ssl':
-                    				self.do_show_search_list()
-                			elif cmd == prefix + 'help':
-                    				self.do_help()
-                			elif cmd == prefix + 'whatsong':
-                    				self.do_now_playing()
+ 			if cmd == prefix + 'status':
+              	 		self.do_playlist_status()
+			elif cmd == prefix + 'now':
+               			self.do_now_playing()
+       			elif cmd == prefix + 'whoplayed':
+              			self.do_who_plays()
+       	 		elif cmd == prefix + 'urb':
+        	        	 threading.Thread(target=self.do_search_urban_dictionary, args=(cmd_arg,)).start()
+        		elif cmd == prefix + 'wea':
+                		 threading.Thread(target=self.do_weather_search, args=(cmd_arg,)).start()
+        		elif cmd == prefix + 'chuck':
+                		 threading.Thread(target=self.do_chuck_noris).start()
+        		elif cmd == prefix + '8ball':
+                		self.do_8ball(cmd_arg)
+        		elif cmd == prefix + 'roll':
+                		self.do_dice()
+			elif cmd == prefix + 'flip':
+                		self.do_flip_coin()
 
-	    if not self.bot_master():
-
-	    	if cmd == prefix + 'status':
-                 	self.do_playlist_status()
-	    	elif cmd == prefix + 'now':
-                 	self.do_now_playing()
-            	elif cmd == prefix + 'whoplayed':
-                 	self.do_who_plays()
-                elif cmd == prefix + 'urb':
-                  	threading.Thread(target=self.do_search_urban_dictionary, args=(cmd_arg,)).start()
-                elif cmd == prefix + 'wea':
-                  	threading.Thread(target=self.do_weather_search, args=(cmd_arg,)).start()
-                elif cmd == prefix + 'chuck':
-                 	threading.Thread(target=self.do_chuck_noris).start()
-                elif cmd == prefix + '8ball':
-                	self.do_8ball(cmd_arg)
-                elif cmd == prefix + 'roll':
-                	self.do_dice()
-	        elif cmd == prefix + 'flip':
-                	self.do_flip_coin()
             self.console_write(pinylib.COLOR['yellow'], self.active_user.nick + ': ' + cmd + ' ' + cmd_arg)
+
         else:
             self.console_write(pinylib.COLOR['green'], self.active_user.nick + ': ' + msg)
 
             if self.active_user.user_level > 4:
                 	threading.Thread(target=self.check_msg, args=(msg,)).start()
 	
-	threading.Thread(target=self.check_lockstatus, args=(msg,)).start()  
         self.active_user.last_msg = msg
 
 
@@ -745,11 +718,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 _user = self.users.search_by_nick(user_name)
                 if _user is not None:
 			_user.user_level = 4
-			if self.bot_master():
-                    		self.send_chat_msg('%s is now a tmp. mod' % user_name)
-                else:
-			if self.bot_master():
-                    		self.send_chat_msg('No user named: %s' % user_name)
+                    	self.send_chat_msg('No user named: %s' % user_name)
 
     def do_deop_user(self, user_name):
         """ 
@@ -770,12 +739,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                    	_user.user_level == 6
 		   else: 
 			_user.user_level == 7
-
-		   if self.bot_master():
-			self.send_chat_msg('%s is no longer a mod.' % user_name)
-                else:
-
-		   if self.bot_master():
 			self.send_chat_msg('No user named: %s' % user_name)
 
 
@@ -1191,10 +1154,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		user = {'by':self.active_user.account,'created':time.time(),'reason':'NA'}
 		db.dadd('badnicks',(bad_nick, user))
 		db.dump()
-		if self.bot_master():
-	                self.send_chat_msg('b1: %s added to banned nicks.' % bad_nick)
-            	else: 
-	                self.send_chat_msg('%s was added to banned nicks.' % bad_nick)
+		db = pickledb.load(userdb, False)
+
+	        self.send_chat_msg('%s was added to banned nicks.' % bad_nick)
 
     def do_remove_bad_nick(self, bad_nick):
         """ 
@@ -1212,11 +1174,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		else:
 			db.dpop('badnicks', bad_nick)
 			db.dump()
+			db = pickledb.load(userdb, False)
 
-			if self.bot_master():
-	                	self.send_chat_msg('b2: %s removed from banned nicks.' % bad_nick)
-            		else: 
-	                	self.send_chat_msg('%s removed from banned nicks.' % bad_nick)
+	                self.send_chat_msg('%s removed from banned nicks.' % bad_nick)
 
     def do_bad_string(self, bad_string):
         """ 
@@ -1237,11 +1197,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		user = {'by':self.active_user.account,'created':time.time(),'reason':'NA'}
 		db.dadd('badwords',(bad_string, user))
 		db.dump()
+		db = pickledb.load(userdb, False)
 
-		if self.bot_master():
-     	          	self.send_chat_msg('b3: %s was added to banned words.' % bad_string)
-		else:
-                	self.send_chat_msg('%s was added to banned words.' % bad_string)
+                self.send_chat_msg('%s was added to banned words.' % bad_string)
 
     def do_remove_bad_string(self, bad_string):
         """ 
@@ -1261,11 +1219,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		else:
 			db.dpop('badwords', bad_string)
 			db.dump()
+			db = pickledb.load(userdb, False)
 
-			if self.bot_master():
-     	          		self.send_chat_msg('b4: %s was removed from banned words.' % bad_string)
-			else:
-                		self.send_chat_msg('%s was removed to banned words.' % bad_string)
+                	self.send_chat_msg('%s was removed to banned words.' % bad_string)
 
     def do_bad_account(self, bad_account_name):
         """ 
@@ -1290,11 +1246,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		user = {'level': 9,'by':self.active_user.account,'created':time.time(),'reason':'NA'}
 		db.dadd('users',(bad_account_name, user))
 		db.dump()
+		db = pickledb.load(userdb, False)
 
-	        if self.bot_master():
-     	          	self.send_chat_msg('b5: %s was added to banned accounts.' % bad_account_name)
-		else:
-                	self.send_chat_msg('%s was added to banned accounts.' % bad_account_name)
+                self.send_chat_msg('%s was added to banned accounts.' % bad_account_name)
 
 
     def do_remove_bad_account(self, bad_account):
@@ -1311,16 +1265,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	       	if self.user_check(bad_account) == 9:
 			db.dpop('users',bad_account)
 			db.dump()
-
-			if self.bot_master():
-     	          		self.send_chat_msg('b6: %s was removed from banned accounts.' % bad_account)
-			else:
-                		self.send_chat_msg('%s was removed from banned accounts.' % bad_account)
-                else:
-                		self.send_chat_msg('%s is not in banned accounts.' % bad_account)
+			db = pickledb.load(userdb, False)
+                	self.send_chat_msg('%s is not in banned accounts.' % bad_account)
 			
-   
-
 
     def do_verified(self, verified_name):
 
@@ -1338,13 +1285,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		user = {'level': 5,'by':self.active_user.account,'created':time.time()}
 		db.dadd('users',(verified_name, user))
 		db.dump()
+		db = pickledb.load(userdb, False)
 
 		self.console_write(pinylib.COLOR['cyan'], '[User] New account %s, verified by %s' % (verified_name, self.active_user.account))
 
-		if self.bot_master(): 
-     	        	self.send_chat_msg('b7: %s is verified now.' % verified_name)
-		else:
-			self.send_chat_msg('%s account is verified.' % verified_name)
+		self.send_chat_msg('%s account is verified.' % verified_name)
 	
 
 
@@ -1358,13 +1303,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if self.user_check(verified_account) == 5:
 		    db.dpop('users',verified_account)
 		    db.dump()
-                    
-		    if self.bot_master(): 
-     	        	self.send_chat_msg('b8: %s is not verified anymore.' % verified_account)
-		    else:
-			self.send_chat_msg('Account %s was removed from verified accounts.' % verified_account)
+		    db = pickledb.load(userdb, False)
+            
+		    self.send_chat_msg('Account %s was removed from verified accounts.' % verified_account)
 		else:
-			self.send_chat_msg('Account %s is not verified accounts.' % verified_account)
+		    self.send_chat_msg('Account %s is not verified accounts.' % verified_account)
 
 
     def user_check(self,account):
@@ -1410,11 +1353,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		user = {'level': 4,'by':self.active_user.account,'created':time.time()}
 		db.dadd('users',(verified_name, user))
 		db.dump()
+		db = pickledb.load(userdb, False)
 
-		if self.bot_master():
-     	        	self.send_chat_msg('b9: %s is chat mod now.' % verified_name)
-		else:
-			self.send_chat_msg('%s is a chatmod now.' % verified_name)
+		self.send_chat_msg('%s is a chatmod now.' % verified_name)
 
     def do_remove_chatmod(self, verified_account):
         if self.is_client_mod:
@@ -1425,13 +1366,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if self.user_check(verified_account)  == 4:
 		    db.dpop('users',verified_account)
 		    db.dump()
-
-		    if self.bot_master():
-     	        	self.send_chat_msg('b0: %s was removed as a chat mod.' % verified_account)
-		    else:
-			self.send_chat_msg('%s is not a chatmod anymore.' % verified_account)
+		    db = pickledb.load(userdb, False)
+		    self.send_chat_msg('%s is not a chatmod anymore.' % verified_account)
 		else:
-			self.send_chat_msg('Account %s is not chatmod accounts.' % verified_account)
+		    self.send_chat_msg('Account %s is not chatmod accounts.' % verified_account)
 
 
     def do_chatadmin(self, verified_name):
@@ -1452,11 +1390,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 		user = {'level': 2,'by':self.active_user.account,'created':time.time()}
 		db.dadd('users',(verified_name, user))
 		db.dump()
+		db = pickledb.load(userdb, False)
 
-		if self.bot_master():
-     	        	self.send_chat_msg('c1: %s is an admin now.' % verified_name)
-		else:
-			self.send_chat_msg('%s is an admin now.' % verified_name)
+		self.send_chat_msg('%s is an admin now.' % verified_name)
 
     def do_remove_chatadmin(self, verified_account):
         if self.is_client_mod:
@@ -1467,11 +1403,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if self.user_check(verified_account) == 2:
 		    db.dpop('users',verified_account)
 		    db.dump()
-
-		    if self.bot_master():
-			self.send_chat_msg('c2: %s was removed as an admin.' % verified_account)
-		    else:
-			self.send_chat_msg('%s is not an admin anymore.' % verified_account)
+		    db = pickledb.load(userdb, False)
+		    self.send_chat_msg('%s is not an admin anymore.' % verified_account)
 
     def do_cam_approve(self, user_name):
         """
@@ -1738,22 +1671,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def options(self):
         """ Load/set special options. """
-	global bot_id
 
         log.info('options: is_client_owner: %s, is_client_mod: %s' % (self.is_client_owner, self.is_client_mod))
 
 	if self.is_client_owner:
             self.get_privacy_settings()
-
-	who_am_i = '['+str(self.account)+']'
-        h = MD5.new()
-        h.update(who_am_i)
          
         if self.is_client_mod:
         	self.send_banlist_msg()
-
-        bot_id = h.hexdigest()
-	self.send_chat_msg('YABUDDY - '+str(bot_id))
 
     def get_privacy_settings(self):
         """ Parse the privacy settings page. """
@@ -1870,90 +1795,3 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
 			self.console_write(pinylib.COLOR['cyan'], '[Security] Spam: Flood, Repeat or Badword by %s' % (self.active_user.nick))
 
-    def check_lockstatus(self, msg):
-           
-            global bots
-	    global bot_id
-            global bot_master
-            global botnet
-
-            chat_words = msg.split(' ')
-     
-            LOCKDOWN_KEYWORDS = ("a0:",)
-            REOPEN_KEYWORDS = ("a1:",)
-            AUTH_KEYWORDS = ("YABUDDY","ohhai","ehyo","ehyo","ehy",)
-            UPDATE_KEYWORDS = ("b0:","b1:","b2:","b3:","b4:","b5:","b6:","b7:","b8:","b9:",)
-
-            for word in chat_words:
-                if word in AUTH_KEYWORDS:
-
-		    self.console_write(pinylib.COLOR['bright_yellow'], '[Botnet] Bot: Auth request: %s' % (self.active_user.nick))
-                    if self.active_user.account != self.account and self.active_user.user_level == 3 or self.active_user.user_level == 1:
-
-                        who_is = '['+str(self.active_user.account)+']'
-                        b = MD5.new()
-                        b.update(who_is)
-                        auth_botid = b.hexdigest()
-                        auth_botid = str(auth_botid)
-                        thisphase = word
-                        next_authkey = chat_words[chat_words.index(thisphase)+2]
-		        
-                        if next_authkey == auth_botid:
-                            if self.active_user.account in botnet:
-				pass
-                            else:
-				botnet.append(self.active_user.account)
-                                self.console_write(pinylib.COLOR['bright_yellow'], '[Botnet] Bot: %s registered.' % (self.active_user.nick))
-                                bots = True 
-				if word == "ehyo":
-					pass
-				else:
-					time.sleep(3)
-                                	self.send_chat_msg('ehyo %s! %s' % (self.active_user.nick, bot_id))
-
-                if word.lower() in LOCKDOWN_KEYWORDS:
-                    if self.active_user.account != self.account and self.active_user.user_level == 3 or self.active_user.user_level == 1:
-                        if self.active_user.account in botnet:
-			    lockdown = True
-                            self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Lockdown started by %s' % (self.active_user.nick))
-                        else:
-                            self.send_chat_msg('hmm, should i do something?')
-
-                if word.lower() in REOPEN_KEYWORDS:
-                    if self.active_user.account != self.account and self.active_user.user_level == 3 or self.active_user.user_level == 1:
-                        if self.active_user.account in botnet:
-			    lockdown = False
-                            self.console_write(pinylib.COLOR['bright_yellow'], '[Security] Lockdown reset by %s' % (self.active_user.nick))  
-                        else:
-                            self.send_chat_msg('its over but i am not sure')
-
-                if word.lower() in UPDATE_KEYWORDS:
-                    if self.active_user.account != self.account and self.active_user.user_level == 3 or self.active_user.user_level == 1:
-                        if self.active_user.account in botnet:
-	                        thisphase = word
-	                        whatwhat = chat_words[chat_words.index(thisphase)+1]
-	
-				if word == "b1:":
-					self.do_bad_nick(whatwhat)
-				if word == "b2:":
-					self.do_remove_bad_nick(whatwhat)
-				if word == "b3:":
-					self.do_bad_string(whatwhat)
-				if word == "b4:":
-					self.do_remove_bad_string(whatwhat)
-				if word == "b5:":
-					self.do_bad_account(whatwhat)
-				if word == "b6:":
-					self.do_remove_bad_account(whatwhat)
-				if word == "b7:":
-					self.do_verified(whatwhat)			
-				if word == "b8:":
-					self.do_remove_verified(whatwhat)			
-				if word == "b9:":
-					self.do_chatmod(whatwhat)		
-				if word == "b0:":
-					self.do_remove_chatmod(whatwhat)			
-				if word == "c1:":
-					self.do_add_chatadmin(whatwhat)			
-				if word == "c2:":
-					self.do_remove_chatadmin(whatwhat)			
