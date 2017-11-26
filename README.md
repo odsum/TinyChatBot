@@ -10,6 +10,7 @@ All database related items moved to using pickledb, uncomment the right section 
 - Spam Protection
 	- On Join flooding
 	- Spam Repeat text
+	- Random nick Check
 	- Lockdown with password or no guest mode
 
 - Verification System
@@ -21,12 +22,6 @@ All database related items moved to using pickledb, uncomment the right section 
 
 - Chat Mods
 	- Chat moderations can !kick and !ban, other mod cmds
-
-- Dual Bot System, basic zero-configuration approach
-	- If more than one bot, the functionality for media is given to the not Master bot
-		
-	B_BOT_MASTER = True  # if defined, this bot will not do the media functions if there is another bot online.
-
 
 - Things to do
 	- Chat log analytics
@@ -47,8 +42,6 @@ All database related items moved to using pickledb, uncomment the right section 
 	Admin Cmds: !lockdown (noguests), !lockup(password enabled), !noguest, !p2t
 
 	Other cmds: !urb, !8ball, !flip, !roll, !whoplayed, !now, !status, !chuck, !wea
-
-Run gib_detect_train.py first to generate a db.
 
 
 ## Pinylib-RTC
@@ -122,5 +115,3 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEAL
 *Thanks to the following people who in some way or another, has helped with this project*
 
 * [notnola](https://github.com/notnola)
-
-
