@@ -16,6 +16,10 @@ import apis.tinychat
 from page import acc
 from util import file_handler, string_util
 
+#from selenium import webdriver
+#import util.web
+
+
 reload(sys)
 sys.setdefaultencoding('utf8')
 
@@ -138,13 +142,6 @@ class TinychatRTCClient(object):
             header=tc_header,
             origin='https://tinychat.com'
         )
-
-        if self._ws.connected:
-            log.info('connecting to: %s' % self.room_name)
-            if self.send_join_msg():
-                self.is_connected = True
-                self.__callback()
-
  	try:
             if self._ws.connected:
                 log.info('connecting to: %s' % self.room_name)
@@ -157,6 +154,22 @@ class TinychatRTCClient(object):
             time.sleep(3)
             self.reconnect()
 
+    def __callback(self):
+        """ The main loop reading event messages from the server. """
+        log.info('starting callback, is_connected: %s' % self.is_connected)
+        fails = 0
+
+        while self.is_connected:
+            try:
+                data = self._ws.next()
+            except Exception as e:
+                log.error('data read error %s: %s' % (fails, e), exc_info=True)
+                fails += 1
+                if fails == 2:
+                    if CONFIG.DEBUG_MODE:
+                        traceback.print_exc()
+                    self.connect()
+                    break
 
     def disconnect(self):
         """ Disconnect from the server. """
@@ -207,6 +220,9 @@ class TinychatRTCClient(object):
 
                     elif event == 'closed':
                         self.on_closed(json_data['error'])
+
+                    elif event == 'captcha':
+                        self.on_captcha(json_data)
 
                     elif event == 'joined':
                         self.on_joined(json_data['self'])
@@ -449,6 +465,30 @@ class TinychatRTCClient(object):
                                    (banned_user.nick, banned_user.account))
             else:
                 self.console_write(COLOR['bright_red'], '%s was banned from the room.' % banned_user.nick)
+  
+    def on_captcha(self, captcha):
+
+	if captcha['key']:
+	        recaptcha = captcha['key']
+      		print "tinychat.com/cauth/recaptcha?token=" + recaptcha
+        	payload = {
+            	'tc': 'captcha',
+            	'req': self._req,
+		'token': '03AO6mBfwawYzZZCHMJbU1jLeMhxKeoRuFB9howwUSGQk2BSoEliMsjRHHZ9_suwGzrPHpNI9zHvoZata6sVSEhfaWgSfBPkD-8E2l54EEBmoFPzMJdGq-rBg4gRd1jNw1ZRudZuK3paaG7Qv-bJ8vdBI9qb4NSAUa9lMlnXj4IeDylyuzR6N9nIPvKSZrVdUoqCbp9jwmEpA9rDNGLSVbLFOXWbLa9uX6B8nlD2onYLVsRR0uFdbYlXNn7AYUwiGVynQWY4QVI5g2V0BDfuoNa0LFQrUYoSWc4Q0N_hJYYdKYiGtL7bmNHvBEwMBo16VQzwHam-6Gqnn6QUHovTFAyKdTeFe96c9RYw'
+        	}
+        	self.send(payload)
+		#print(captcha['key'])
+        	#driver = webdriver.Firefox()
+       		#_url = 'https://tinychat.com/{0}'.format(self.room_name)
+        	#driver.get(_url)
+
+        	# execute the javascript.
+       		#driver.execute_script('ShowRecaptcha("' + token + '")')
+        	#raw_input('\nIf the captcha comes up in the browser, solve it, else click enter.')
+
+        	# close the browser window.
+        	#driver.close()
+
 
     def on_unban(self, unban_info):
         """
