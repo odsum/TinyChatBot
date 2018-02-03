@@ -17,7 +17,7 @@ from random import randint
 
 import pickledb
 
-__version__ = '2.0.1'
+__version__ = '2.0.2'
 
 log = logging.getLogger(__name__)
 
@@ -57,12 +57,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     userdb = pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/' + 'user.db'
     db = pickledb.load(userdb, False)
-
-    if not os.path.exists(userdb):
-    	db.dcreate('users')
-    	db.dcreate('badwords')
-    	db.dcreate('badnicks')
-
 
     def isWord(self, word):
 
@@ -121,7 +115,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.console_write(pinylib.COLOR['bright_green'], '[User] Client joined the room: %s:%s' % (client.nick, client.id))
 
         threading.Thread(target=self.options).start()
-
+        
+	if not os.path.exists(userdb):
+ 		db = pickledb.load(userdb, False)
+    		db.dcreate('users')
+    		db.dcreate('badwords')
+    		db.dcreate('badnicks')
+        	self.console_write(pinylib.COLOR['bright_green'], '[DB] Created')
+		db.dump()
+	else:
+ 		db = pickledb.load(userdb, False)
+        	self.console_write(pinylib.COLOR['bright_green'], '[DB] Loaded')
+	
     def on_join(self, join_info):
         """
         Received when a user joins the room.
@@ -1151,6 +1156,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	    elif self.nick_check(bad_nick):
                 self.send_chat_msg('%s is already in list.' % bad_nick)
             else:
+		db = pickledb.load(userdb, False)
 		user = {'by':self.active_user.account,'created':time.time(),'reason':'NA'}
 		db.dadd('badnicks',(bad_nick, user))
 		db.dump()
@@ -1172,6 +1178,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	       	if not self.nick_check(bad_nick):
      	          	self.send_chat_msg('%s is not in the banned nicks.' % bad_nick)
 		else:
+			db = pickledb.load(userdb, False)
 			db.dpop('badnicks', bad_nick)
 			db.dump()
 			db = pickledb.load(userdb, False)
@@ -1193,7 +1200,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	    elif self.word_check(bad_string):
                 self.send_chat_msg('%s is already in list.' % bad_string)
             else:
-
+		db = pickledb.load(userdb, False)
 		user = {'by':self.active_user.account,'created':time.time(),'reason':'NA'}
 		db.dadd('badwords',(bad_string, user))
 		db.dump()
@@ -1217,6 +1224,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
      	          	self.send_chat_msg('%s is not banned.' % bad_string)
 
 		else:
+			db = pickledb.load(userdb, False)
 			db.dpop('badwords', bad_string)
 			db.dump()
 			db = pickledb.load(userdb, False)
@@ -1240,6 +1248,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_chat_msg('%s is already in list.' % bad_account_name)
             else:
 
+		db = pickledb.load(userdb, False)
 	       	if self.user_check(bad_account_name) > 0:
 			db.dpop('users', bad_account_name)
 
@@ -1263,6 +1272,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_chat_msg('Missing account.')
             else:
 	       	if self.user_check(bad_account) == 9:
+			db = pickledb.load(userdb, False)
 			db.dpop('users',bad_account)
 			db.dump()
 			db = pickledb.load(userdb, False)
@@ -1279,6 +1289,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 	    elif self.user_check(verified_name) == 5:
                 self.send_chat_msg('%s is already in list.' % verified_name)
             else:
+		db = pickledb.load(userdb, False)
 	       	if self.user_check(verified_name) == 5:
 			db.dpop('users',verified_name)
 
@@ -1299,7 +1310,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if len(verified_account) is 0:
                 self.send_chat_msg('Missing account.')
             else:
-
+		db = pickledb.load(userdb, False)
                 if self.user_check(verified_account) == 5:
 		    db.dpop('users',verified_account)
 		    db.dump()
@@ -1346,7 +1357,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_chat_msg('%s is already in list.' % verified_name)
             else:
 
-
+		db = pickledb.load(userdb, False)
 		if self.user_check(verified_name)  == 5:
 			db.dpop('users',verified_name)
 
@@ -1362,8 +1373,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if len(verified_account) is 0:
                 self.send_chat_msg('Missing account.')
             else:
-
+		
                 if self.user_check(verified_account)  == 4:
+		    db = pickledb.load(userdb, False)
 		    db.dpop('users',verified_account)
 		    db.dump()
 		    db = pickledb.load(userdb, False)
@@ -1383,7 +1395,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             elif self.user_check(verified_name) == 2:
                 self.send_chat_msg('%s is already in list.' % verified_name)
             else:
-
+		db = pickledb.load(userdb, False)
 		if self.user_check(verified_name) == 4 or self.user_check(verified_name) == 3 or self.user_check(verified_name) == 5:
 			db.dpop('users',verified_name)
 
@@ -1399,8 +1411,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if len(verified_account) is 0:
                 self.send_chat_msg('Missing account.')
             else:
-
+		
                 if self.user_check(verified_account) == 2:
+		    db = pickledb.load(userdb, False)
 		    db.dpop('users',verified_account)
 		    db.dump()
 		    db = pickledb.load(userdb, False)
