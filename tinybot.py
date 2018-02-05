@@ -17,7 +17,7 @@ from random import randint
 
 import pickledb
 
-__version__ = '2.0.3.3'
+__version__ = '2.0.3.4'
 
 log = logging.getLogger(__name__)
 
@@ -121,7 +121,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
         threading.Thread(target=self.options).start()
 
         if not os.path.exists(userdb):
-           
+            
+            db = pickledb.load(userdb, False)
             db.dcreate('users')
             db.dcreate('badwords')
             db.dcreate('badnicks')
@@ -314,27 +315,27 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.privacy_.set_room_password(password)
                 lockdown = True
                 if soft:
-                    self.send_chat_msg('a0: Lockdown - no guests allowed.')
+                    self.send_chat_msg('Lockdown - no guests allowed.')
                 else:
                     self.send_chat_msg(
-                        'a0: Lockdown - tmp password is: %s' % (password))
+                        'Lockdown - tmp password is: %s' % (password))
             else:
                 password = None
                 self.privacy_.set_room_password(password)
                 lockdown = False
                 self.send_chat_msg(
-                    'a1: %s is open to the public again.' % (self.room_name))
+                    '%s is open to the public again.' % (self.room_name))
 
         else:
             if not pinylib.CONFIG.B_ALLOW_GUESTS:
                 lockdown = False
                 self.do_guests()
                 self.send_chat_msg(
-                    'a1: %s is open to the public again.' % (self.room_name))
+                    '%s is open to the public again.' % (self.room_name))
 
             else:
                 self.do_guests()
-                self.send_chat_msg('a0: Lockdown - no guests allowed.')
+                self.send_chat_msg('Lockdown - no guests allowed.')
 
     def on_nick(self, uid, nick):
         """
