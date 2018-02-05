@@ -17,7 +17,7 @@ from random import randint
 
 import pickledb
 
-__version__ = '2.0.3.2'
+__version__ = '2.0.3.3'
 
 log = logging.getLogger(__name__)
 
@@ -161,44 +161,55 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.console_write(pinylib.COLOR['cyan'], '[Security] Banned: Nick %s' % (_user.nick))
 
         if _user.account:
+          
             if _user.is_owner:
-                _user.user_level = 1
+                _user.user_level = 1 # account owner
                 self.console_write(pinylib.COLOR['red'], '[User] Room Owner %s:%d:%s' %
                                    (_user.nick, _user.id, _user.account))
             elif _user.is_mod:
-
-                _user.user_level = 3
+                _user.user_level = 3 # mod
                 self.console_write(pinylib.COLOR['bright_red'], '[User] Moderator %s:%d:%s' %
                                    (_user.nick, _user.id, _user.account))
 
-            else:
-                if db.dexists('users', _user.account):
-                    _user.user_level = self.user_check(_user.account)
-                    self.console_write(pinylib.COLOR['bright_red'], '[User] Found, level(%s)  %s:%d:%s' % (
-                        _user.user_level, _user.nick, _user.id, _user.account))
+                     
+            if db.dexists('users', _user.account):
+           
+                _level = self.user_check(_user.account)
+              
+                if _level == 4 and not _user.is_mod:
+                      _user.user_level = _level # chatmod
 
-                else:
-                    _user.user_level = 6
+                if _level == 5 and not _user.is_mod:
+                      _user.user_level = _level # whitelist 
+
+                if _level == 2: # overwrite mod to chatadmin
+                      _user.user_level = _level
+
+                self.console_write(pinylib.COLOR['bright_red'], '[User] Found, level(%s)  %s:%d:%s' % (_user.user_level, _user.nick, _user.id, _user.account))
+            
+            else:
+                if not _user.user_level:
+                    _user.user_level = 6 # account not verified
                     self.console_write(pinylib.COLOR['bright_red'], '[User] Not verified %s:%d:%s' % (
                         _user.nick, _user.id, _user.account))
 
-                if self.user_check(_user.account) == 9 and self.is_client_mod:
-                    if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                        self.send_kick_msg(_user.id)
-                    else:
-                        self.send_ban_msg(_user.id)
+            if self.user_check(_user.account) == 9 and self.is_client_mod:
+                if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
+                     self.send_kick_msg(_user.id)
+                else:
+                    self.send_ban_msg(_user.id)
                     self.console_write(
                         pinylib.COLOR['cyan'], '[Security] Banned: Account %s' % (_user.account))
+            else:
 
-                else:
-
-                    tc_info = pinylib.apis.tinychat.user_info(_user.account)
-                    if tc_info is not None:
-                        _user.tinychat_id = tc_info['tinychat_id']
-                        _user.last_login = tc_info['last_active']
+                tc_info = pinylib.apis.tinychat.user_info(_user.account)
+                  
+                if tc_info is not None:
+                    _user.tinychat_id = tc_info['tinychat_id']
+                    _user.last_login = tc_info['last_active']
 
         else:
-            _user.user_level = 7
+            _user.user_level = 7 # guest
             self.console_write(
                 pinylib.COLOR['bright_red'], '[User] Guest %s:%d' % (_user.nick, _user.id))
 
@@ -240,10 +251,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if bad_nick > 3:
                 time.sleep(1.0)
-                # if self.user_check(_user.account) == 6 and self.is_client_mod:
-                #   self.do_bad_account(_user.account)
-                # spam accounts will make database file too big, maybe a
-                # different db file is needed
+
                 self.send_ban_msg(_user.id)
                 self.console_write(pinylib.COLOR[
                                    'cyan'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))
@@ -1108,20 +1116,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """ Clears the chat box. """
         self.send_chat_msg('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'
                            '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
-
-    def do_nick(self, new_nick):
-        """ 
-        Set a new nick for the bot.
-
-        :param new_nick: The new nick name.
-        :type new_nick: str
-        """
-        if len(new_nick) is 0:
-            self.nickname = pinylib.string_util.create_random_string(5, 25)
-            self.set_nick()
-        else:
-            self.nickname = new_nick
-            self.set_nick()
 
     def do_kick(self, user_name):
         """ 
