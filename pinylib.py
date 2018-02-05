@@ -59,7 +59,7 @@ def write_to_log(msg, room_name):
 
 
 class TinychatRTCClient(object):
-    def __init__(self, room=None, nickname='', account=None, password=None):
+    def __init__(self, room, nickname='', account=None, password=None):
         self.room_name = room
         self.nickname = nickname
         self.account = account
