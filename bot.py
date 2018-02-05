@@ -15,6 +15,7 @@ def main():
         bot = tinybot.TinychatBot(room=room_name)
 
     bot.nickname = tinybot.pinylib.CONFIG.BOTNICK
+    print ('[YABUDDY] - Connecting... https://github.com/odsum/TinyChatBot')
 
     do_login = 1
     if do_login:
@@ -36,7 +37,7 @@ def main():
             else:
                 is_logged_in = bot.login()
         if is_logged_in:
-            bot.console_write(tinybot.pinylib.COLOR['bright_green'], 'Logged in as: %s' % bot.account)
+            bot.console_write(tinybot.pinylib.COLOR['bright_green'], '[Bot] Account: %s' % bot.account)
         if not do_login:
             bot.account = None
             bot.password = None

@@ -116,7 +116,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         client = self.users.add(client_info)
         client.user_level = 3
         self.console_write(pinylib.COLOR[
-                           'bright_green'], '[User] Client joined the room: %s:%s' % (client.nick, client.id))
+                           'bright_green'], '[Bot] connected as %s:%s' % (client.nick, client.id))
 
         threading.Thread(target=self.options).start()
 
@@ -1725,17 +1725,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
             elif pm_cmd == prefix + 'clrba':
                 self.do_clear_bad_accounts()
 
-        self.console_write(pinylib.COLOR['white'], '[MSG] Private message from %s: %s' % (
+        self.console_write(pinylib.COLOR['white'], '[PRIMSG] %s: %s' % (
             self.active_user.nick, private_msg))
 
-    def on_quitting(self, uid, account):
-
-        if account in botnet:
-            botnet.remove(account)
-            self.console_write(
-                pinylib.COLOR['bright_yellow'], '[Botnet] Bot: %s unregistered.' % (account))
-            del botnet[:]
-            bots = False
 
     def timer_event(self):
         """ This gets called when the timer has reached the time. """
@@ -1874,7 +1866,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     lastmsgs.append(msg)
 
-            if spam > 2:
+            if spam > 1:
                 should_be_banned = True
                 is_a_spammer = True
                 spammer = 0
