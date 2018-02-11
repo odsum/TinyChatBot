@@ -17,7 +17,7 @@ from random import randint
 
 import pickledb
 
-__version__ = '2.1.1'
+__version__ = '2.1.1.1'
 
 log = logging.getLogger(__name__)
 
@@ -669,14 +669,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
             time.sleep(0.7)
             if self.active_user.user_level == 6:
                 if spammer:
-                    self.do_bad_account(self.active_user.account)
+                    self.do_add(self.active_user.account,'spammer',9,0,0)
                     spammer = False
-                    self.send_ban_msg(self.active_user.id)
+                self.send_ban_msg(self.active_user.id)
 
             elif len(self.active_user.account) is 0:
                 if spammer:
                     spammer = False
-                    self.send_ban_msg(self.active_user.id)
+                self.send_ban_msg(self.active_user.id)
         if kick:
             self.send_kick_msg(self.active_user.id)
 
