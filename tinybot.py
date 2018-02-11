@@ -589,12 +589,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
         spamlevel = 0
         for word in chat_words:
             
-
             if not self.isWord(word):
                 spamlevel += 0.25 # for everyword that isn't english word
-
-            if not self.isWord(chatr_user):
-                spamlevel += 0.5 # wack nick 
 
             if word.isupper():
                 spamlevel += 0.125 # Uppercase word 
@@ -608,6 +604,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if total > 100: #if message is larger than 100 characters 
             spamlevel += 0.5 
 
+        if not self.isWord(chatr_user):
+            spamlevel += 0.5 # wack nick 
 
         knownaccount = self.ticket_check_acc(chatr_user)
         knownnick = self.ticket_check(chatr_user)
@@ -640,22 +638,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if msgdiff < 5:
                     spamlevel += 1
                     kick = True
-
-
-            mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user,'time': msg_time }
-        else:
-            mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user,'time': msg_time }
-
+           
         if spamlevel >= 2: #if msg spam questionable, add ticket (spammer)
 
             tpkg = {'score': spamlevel, 'account': chatr_account,'created': msg_time }
             spam_db.dadd('tickets', (chatr_user, tpkg))
-
             self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
                                (chatr_user, spamlevel))
+
+        mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user,'time': msg_time }
         spam_db.dadd('messages', (msg, mpkg))      
         spam_db.dump()
-
         self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Nick: %s Score: %s' %
                                (chatr_user, spamlevel))
         # spam scores
