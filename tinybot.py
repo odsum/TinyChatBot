@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-""" Tinybot by Nortxort (https://github.com/nortxort/tinybot-rtc) """
-""" Modified by odsum (https://github.com/odsum) """
+""" Buddybot by odsum (https://github.com/odsum) """
+""" Based off Tinybot by Nortxort (https://github.com/nortxort/tinybot-rtc) """
 
 import time
 import logging
 import threading
 import os
 import pinylib
+import botdb
 
 from page import privacy
 from util import tracklist
@@ -15,9 +16,7 @@ from apis import youtube, other, locals_
 import random
 from random import randint
 
-import pickledb
-
-__version__ = '2.1.1.1'
+__version__ = '2.2'
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +29,8 @@ newnick = 0
 ban_time = 0
 dj_mode = 0
 djs = []
+lockdown = False
+messages = {}
 
 # User levels
 #7 = 'Guest'
@@ -54,19 +55,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
     @property
     def config_path(self):
         """ Returns the path to the rooms configuration directory. """
-        return pinylib.CONFIG.CONFIG_PATH + self.room_name + '/'
+        return pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/'
 
-    global lockdown
-    global userdb
-    global db
-    global spamdb
-    
-    lockdown = False
-    
-    spamdb = pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/' + 'spam.db'
-    userdb = pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/' + 'user.db'
-    db = pickledb.load(userdb, False)
-
+    global buddydb 
+    path = pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/'
+    buddydb = botdb.DataBase('users', path)
 
     def on_joined(self, client_info):
         """
@@ -81,20 +74,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.is_client_owner = client_info['owner']
         client = self.users.add(client_info)
         client.user_level = 2 
-        self.console_write(pinylib.COLOR[
-                           'bright_green'], '[Bot] connected as %s:%s' % (client.nick, client.id))
+        self.console_write(pinylib.COLOR['white'], '[Bot] connected as %s:%s' % (client.nick, client.id))
 
         threading.Thread(target=self.options).start()
 
-        if not os.path.exists(userdb):
-            
-            db = pickledb.load(userdb, False)
-            db.dcreate('users')
-            db.dcreate('badwords')
-            db.dcreate('badnicks')
-            db.dump()
-            self.console_write(pinylib.COLOR['bright_green'], '[DB] Created')
-        
+        if not buddydb.has_db_file():
+            buddydb.create_db_path()
+            buddydb.create_defaults()
+            self.console_write(pinylib.COLOR['green'], '[DB] Created')
+        else:
+            buddydb.load()
+            self.console_write(pinylib.COLOR['green'], '[DB] Loaded')
+
     def on_join(self, join_info):
         """
         Received when a user joins the room.
@@ -108,7 +99,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         global autoban_time
         global lockdown
         global bad_nick
-        global db
         global time_join
 
         time_join = time.time()
@@ -116,12 +106,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
         log.info('user join info: %s' % join_info)
         _user = self.users.add(join_info)
 
-        if self.nick_check(_user.nick):
+        if buddydb.find_db_nick_bans(_user.nick):
             if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                 self.send_kick_msg(_user.id)
             else:
                 self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['cyan'], '[Security] Banned: Nick %s' % (_user.nick))
+                self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % (_user.nick))
 
         threading.Thread(target=self.user_register, args=(_user,)).start()    
 
@@ -133,24 +123,23 @@ class TinychatBot(pinylib.TinychatRTCClient):
         global autoban_time
         global lockdown
         global bad_nick
-        global db
         global time_join
 
+        buddyusr = buddydb.find_db_user(_user.account)
 
         if _user.account:
           
             if _user.is_owner:
                 _user.user_level = 1 # account owner
-                self.console_write(pinylib.COLOR['red'], '[User] Room Owner %s:%d:%s' %
+                self.console_write(pinylib.COLOR['cyan'], '[User] Room Owner %s:%d:%s' %
                                    (_user.nick, _user.id, _user.account))
             elif _user.is_mod:
                 _user.user_level = 3 # mod
-                self.console_write(pinylib.COLOR['bright_red'], '[User] Moderator %s:%d:%s' %
+                self.console_write(pinylib.COLOR['cyan'], '[User] Moderator %s:%d:%s' %
                                    (_user.nick, _user.id, _user.account))
     
-            if db.dexists('users', _user.account):
-           
-                _level = self.user_check(_user.account)
+            if buddyusr:
+                _level = buddyusr['level']
               
                 if _level == 4 and not _user.is_mod:
                       _user.user_level = _level # chatmod
@@ -161,21 +150,21 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if _level == 2: # overwrite mod to chatadmin
                       _user.user_level = _level
 
-                self.console_write(pinylib.COLOR['bright_red'], '[User] Found, level(%s)  %s:%d:%s' % (_user.user_level, _user.nick, _user.id, _user.account))
+                self.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (_user.user_level, _user.nick, _user.id, _user.account))
             
             else:
                 if not _user.user_level:
                     _user.user_level = 6 # account not verified
-                    self.console_write(pinylib.COLOR['bright_red'], '[User] Not verified %s:%d:%s' % (
+                    self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (
                         _user.nick, _user.id, _user.account))
 
-            if self.user_check(_user.account) == 9 and self.is_client_mod:
+            if buddydb.find_db_account_bans(_user.account) and self.is_client_mod:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                      self.send_kick_msg(_user.id)
                 else:
                     self.send_ban_msg(_user.id)
                     self.console_write(
-                        pinylib.COLOR['cyan'], '[Security] Banned: Account %s' % (_user.account))
+                        pinylib.COLOR['red'], '[Security] Banned: Account %s' % (_user.account))
             else:
 
                 tc_info = pinylib.apis.tinychat.user_info(_user.account)
@@ -187,7 +176,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
         else:
             _user.user_level = 7 # guest
             self.console_write(
-                pinylib.COLOR['bright_red'], '[User] Guest %s:%d' % (_user.nick, _user.id))
+                pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
+
+
+# Lockdown 
+# odsum
 
         if lockdown and autoban_time != 0:
             if time_join - 240 > autoban_time: #reset after X seconds locakdown
@@ -197,7 +190,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     autoban_time = 0
                     bad_nick = 0
                     self.console_write(
-                        pinylib.COLOR['cyan'], '[Security] Lockdown Mode Reset')
+                        pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
         else:
 
             maxtime = 15  # Reset check in X seconds
@@ -218,7 +211,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.do_lockdown(soft)
                 autoban_time = time_join
                 self.console_write(
-                    pinylib.COLOR['cyan'], '[Security] Lockdown started')
+                    pinylib.COLOR['red'], '[Security] Lockdown started')
             else:
                 joind_count += 1
 
@@ -228,8 +221,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if bad_nick > 1:
                 time.sleep(1.2)
                 self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR[
-                                   'cyan'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))
+                self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))
+
+        if not pinylib.CONFIG.B_ALLOW_GUESTS:
+            if _user.user_level == 7:
+                self.send_ban_msg(_user.id)
+                self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % (_user.nick))
 
         self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
             _user.nick, _user.id, joind_count))
@@ -262,7 +259,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     def on_pending_moderation(self, pending):
         _user = self.users.search(pending['handle'])
         if _user is not None:
-            if self.user_check(_user.account) < 6:
+            if _user.level < 6:
                 self.send_cam_approve_msg(_user.id)
             else:
                 _user.is_waiting = True
@@ -282,7 +279,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         _user.nick = nick
 
         if uid != self.client_id:
-            if self.nick_check(_user.nick):
+            if buddydb.find_db_nick_bans(_user.nick):
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                     self.send_kick_msg(uid)
                 else:
@@ -421,83 +418,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     else:
                         self.send_ban_msg(_user.id)
 
-    def do_add(self, account, reason, level, string, nick):
-
-        db = pickledb.load(userdb, False)
-               
-        if self.is_client_mod:
-            if string == 0 and nick == 0:
-              
-                if len(account) < 3:
-                    self.send_chat_msg('Account too short: ' + str(len(account)))
-                elif self.user_check(account) == level:
-                    self.send_chat_msg('%s is already has that access.' % account)
-
-                else:        
-                    user = {'level': level, 'r': reason, 'w': self.active_user.account,
-                        'c': int(time.time())}
-                    db.dadd('users', (account, user))
-                    db.dump()
-             
-                    self.send_chat_msg('%s account is added.' % account)
-
-            elif string > 0 and nick == 0:
-            
-                if len(string) < 3:
-                    self.send_chat_msg('Ban string to short: ' + str(len(string)))
-                elif self.word_check(string):
-                    self.send_chat_msg('%s is already in list.' % string)
-                else:
-                    word = string.lower()
-                    user = {'w': self.active_user.account,
-                        'c': time.time(), 'r': reason}
-                    db.dadd('badwords', (word, user))
-                    db.dump()
-                    self.send_chat_msg('%s was added to banned words.' % string)
-
-            elif nick > 0:
-
-                if self.nick_check(nick):
-                    self.send_chat_msg('%s is already in list.' % nick)
-                else:
-                    user = {'w': self.active_user.account,
-                        'c': time.time(), 'r': reason}
-                    db.dadd('badnicks', (nick, user))
-                    db.dump()
-                    self.send_chat_msg('%s was added to banned nicks.' % nick)
-
-    def do_remove(self, account, reason, level, string, nick):
-
-        db = pickledb.load(userdb, False)
-               
-        if self.is_client_mod:
-            if string == 0 and nick == 0:
-              
-                if self.user_check(account) == level:
-
-                    db.dpop('users', account)
-                    db.dump()
-                    self.send_chat_msg('%s account is removed.' % account)
-                else:
-                    self.send_chat_msg('%s account was not found' % account)
-                    
-            elif string > 0 and nick == 0:
-            
-                if self.word_check(string):
-                    self.send_chat_msg('%s is already in list.' % string)
-                    
-                    db.dpop('badwords', string)
-                    db.dump()
-                    self.send_chat_msg('%s was removed from banned words.' % string)
-
-            elif nick > 0:
-
-                if self.nick_check(nick):
-             
-                    db.dpop('badnicks', nick)
-                    db.dump()
-                    self.send_chat_msg('%s was removed to banned nicks.' % nick)
-
     def do_cam_approve(self, user_name):
         """
         Allow a user to broadcast in a green room enabled room.
@@ -550,11 +470,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def check_msg(self, msg):
      
-        # Spam 2.0 Protection ting
+        # Spam 2.1 Protection ting
         # odsum(lucy) //shit hasn't been the same as it was before...
-        # 02.11.18
-
-        global spamdb
+        # 02.13.18
 
         ban = False
         spammer = False
@@ -567,36 +485,22 @@ class TinychatBot(pinylib.TinychatRTCClient):
         chatr_user = self.active_user.nick
         chatr_account = self.active_user.account 
         msg_time = int(time.time())
-
-        if not os.path.exists(spamdb):
-
-            spam_db = pickledb.load(spamdb, False)
-            spam_db.dcreate('tickets')    
-            spam_db.dcreate('messages')
-            spam_db.dump()
-            self.console_write(pinylib.COLOR['bright_green'], '[DB] Spam DB Created')
-        
-        else:
-            spam_db = pickledb.load(spamdb, False)
-
-
-        tickets = spam_db.dgetall('tickets')    
-        messages = spam_db.dgetall('messages')
-
-        total_tickets = sum(map(len, tickets.values()))
-        total_messages = sum(map(len, messages.values()))
         
         spamlevel = 0
+
         for word in chat_words:
             
             if not self.isWord(word):
                 spamlevel += 0.25 # for everyword that isn't english word
 
+            if not self.isWord(chatr_user):
+                spamlevel += 0.5 # wack nick 
+
             if word.isupper():
                 spamlevel += 0.125 # Uppercase word 
 
             lword = word.lower()
-            if self.word_check(lword):
+            if buddydb.find_db_word_bans(lword):
                 ban = True
                 spammer = True
                 spamlevel += 2
@@ -604,61 +508,50 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if total > 100: #if message is larger than 100 characters 
             spamlevel += 0.5 
 
-        if not self.isWord(chatr_user):
-            spamlevel += 0.5 # wack nick 
+        knownnick = buddydb.find_db_ticket(chatr_user)
 
-        knownaccount = self.ticket_check_acc(chatr_user)
-        knownnick = self.ticket_check(chatr_user)
-
-        if knownaccount:
-            spamlevel += 1
-            spammer = True
 
         if knownnick:
-            spamlevel += 1
+            spamlevel += 0.5
             spammer = True
-
+            if knownnick['account']:
+                spamlevel += 1
+               
         if msg in messages:
 
-            spamlevel += 1            
-            getmsg = spam_db.dget('messages', msg)
-            
-            if getmsg: 
-                oldmsg_spamlevel = getmsg['score']
-                oldmsg_spamaccount = getmsg['account']
-                oldmsg_spammnick = getmsg['nick']
-                oldmsg_time = getmsg['time']
+            spamlevel += 1       
 
-                if oldmsg_spamlevel > 1:
-                    spamlevel += 1
-                    kick = True
+            oldmsg = messages[msg]
+            oldmsg_spamlevel = oldmsg['score']
+            oldmsg_spamaccount = oldmsg['account']
+            oldmsg_spammnick = oldmsg['nick']
+            oldmsg_time = oldmsg['time']
 
-                msgdiff = oldmsg_time - msg_time
+            if oldmsg_spamlevel > 1:
+                spamlevel += 1
+                kick = True
 
-                if msgdiff < 5:
-                    spamlevel += 1
-                    kick = True
-           
+            msgdiff = oldmsg_time - msg_time
+
+            if msgdiff < 5:
+                spamlevel += 1
+                kick = True
+
+        mpkg = {msg:{'score': spamlevel, 'account': chatr_account, 'nick': chatr_user,'time': msg_time }}
+
         if spamlevel >= 2: #if msg spam questionable, add ticket (spammer)
 
-            tpkg = {'score': spamlevel, 'account': chatr_account,'created': msg_time }
-            spam_db.dadd('tickets', (chatr_user, tpkg))
+            buddydb.add_ticket(chatr_account, spamlevel, chatr_user, 'spamming')
             self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
                                (chatr_user, spamlevel))
 
-        mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user,'time': msg_time }
-        spam_db.dadd('messages', (msg, mpkg))      
-        spam_db.dump()
+        messages.update(mpkg)     
+
         self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Nick: %s Score: %s' %
                                (chatr_user, spamlevel))
-        # spam scores
-        # 0-5 good msg | 0-3 questionable msg | 3+ spam 
-  
-        if len(messages) > 12: #store last 12 messages 
-            msg_index = 0
-            spam_db.drem('messages') #reset messages 
-            spam_db.dcreate('messages')
-            spam_db.dump()
+       
+        if len(messages) > 12: #store last 12 messages
+            messages.clear()
 
         if self.active_user.user_level > 5:  
 
@@ -669,14 +562,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
             time.sleep(0.7)
             if self.active_user.user_level == 6:
                 if spammer:
-                    self.do_add(self.active_user.account,'spammer',9,0,0)
+                    buddydb.add_bad_account(self.active_user.account)
                     spammer = False
-                self.send_ban_msg(self.active_user.id)
+                    self.send_ban_msg(self.active_user.id)
 
             elif len(self.active_user.account) is 0:
                 if spammer:
                     spammer = False
-                self.send_ban_msg(self.active_user.id)
+                    self.send_ban_msg(self.active_user.id)
         if kick:
             self.send_kick_msg(self.active_user.id)
 
@@ -1120,43 +1013,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         return xpassword
 
-    def user_check(self, account):
-        db = pickledb.load(userdb, False)
-        if db.dexists('users', account):
-            user = db.dget('users', account)
-            return user['level']
-        else:
-            return 0
-    
-    def ticket_check(self, a):
-        spam_db = pickledb.load(spamdb, False)
-        if spam_db.dexists('tickets', a):
-            return True
-        else:
-            return False
-
-    def ticket_check_acc(self, a):
-        spam_db = pickledb.load(spamdb, False)
-        if spam_db.dexists('tickets', a):
-            acc = spam_db.dget('tickets', a)
-            if acc['account'] != '':
-                return True
-        else:
-            return False        
-
-    def word_check(self, word):
-        db = pickledb.load(userdb, False)
-        if db.dexists('badwords', word):
-            return True
-        else:
-            return False
-
-    def nick_check(self, nick):
-        db = pickledb.load(userdb, False)
-        if db.dexists('badnicks', nick):
-            return True
-        else:
-            return False
     def isWord(self, word):
 
         VOWELS = "aeiou"
@@ -1414,10 +1270,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if _user.user_level < 4:
                 if cmd == prefix + 'chatmod':
-                    self.do_add(cmd_arg,0,4,0,0)
+                    buddydb.add_user(cmd_arg, 4)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Added %s to Chat Mods' % (cmd_arg))
                 elif cmd == prefix + 'rmchatmod':
-                    self.do_remove(cmd_arg,0,4,0,0)
-               
+                    buddydb.remove_user(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] removed %s from Chat Mods' % (cmd_arg))
                 elif cmd == prefix + 'noguest':
                     self.do_guests()
                 elif cmd == prefix + 'lockdown':
@@ -1428,9 +1285,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if _user.user_level == 2:
 
                 if cmd == prefix + 'chatadmin':
-                    self.do_add(cmd_arg,0,2,0,0)
+                    buddydb.add_user(cmd_arg, 2)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Added %s to Chat Admins' % (cmd_arg))
                 elif cmd == prefix + 'rmchatadmin':
-                    self.do_remove(cmd_arg,0,2,0,0)
+                    buddydb.remove_user(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Removed %s to Chat Admins' % (cmd_arg))
 
                 if self.is_client_owner:
 
@@ -1460,9 +1319,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 elif cmd == prefix + 'who':
                     self.do_user_info(cmd_arg)
                 elif cmd == prefix + 'v':
-                    self.do_add(cmd_arg,0,5,0,0)
+                    buddydb.add_user(cmd_arg, 5)
+                    self.console_write(pinylib.COLOR['green'], '[Db] %s is verified.' % (cmd_arg))
                 elif cmd == prefix + 'rmv':
-                    self.do_remove(cmd_arg,0,5,0,0)
+                    buddydb.remove_user(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] %s no longer verified.' % (cmd_arg))
                 elif cmd == prefix + 'clr':
                     self.do_clear()
                 elif cmd == prefix + 'forgive':
@@ -1480,17 +1341,23 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 elif cmd == prefix + 'close':
                     self.do_close_broadcast(cmd_arg)
                 elif cmd == prefix + 'badn':
-                    self.do_add(0,0,0,0,cmd_arg)
+                    buddydb.add_user(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Bad Nick %s added.' % (cmd_arg))
                 elif cmd == prefix + 'rmbadn':
-                    self.do_remove(0,0,0,0,cmd_arg)
+                    buddydb.remove_bad_nick(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Bad nick %s removed.' % (cmd_arg))
                 elif cmd == prefix + 'banw':
-                    self.do_add(0,0,0,cmd_arg,0)
+                    buddydb.add_bad_word(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Bad word: %s added.' % (cmd_arg))
                 elif cmd == prefix + 'rmw':
-                    self.do_remove(0,0,0,cmd_arg,0)
+                    buddydb.remove_bad_word(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Bad word: %s removed.' % (cmd_arg))
                 elif cmd == prefix + 'bada':
-                    self.do_add(cmd_arg,0,9,0,0)
+                    buddydb.add_bad_account(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] Added %s to Bad Accounts.' % (cmd_arg))
                 elif cmd == prefix + 'rmbada':
-                    self.do_remove(cmd_arg,0,9,0,0)
+                    buddydb.remove_bad_account(cmd_arg)
+                    self.console_write(pinylib.COLOR['green'], '[Db] removed %s from Bad Accounts.' % (cmd_arg))
 
                 if cmd == prefix + 'dj':
                     threading.Thread(target=self.do_dj,
@@ -1599,12 +1466,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 elif cmd == prefix + 'whoplayed':
                     self.do_who_plays()
 
-            self.console_write(
-                pinylib.COLOR['yellow'], self.active_user.nick + ': ' + cmd + ' ' + cmd_arg)
+            self.console_write(pinylib.COLOR['green'], self.active_user.nick + ': ' + cmd + ' ' + cmd_arg)
 
         else:
             self.console_write(
-                pinylib.COLOR['green'], self.active_user.nick + ': ' + msg)
+                pinylib.COLOR['white'], self.active_user.nick + ': ' + msg)
 
             if self.active_user.user_level > 4:
                 threading.Thread(target=self.check_msg, args=(msg,)).start()
@@ -1631,9 +1497,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if _user.user_level < 4:
                 if cmd == prefix + 'chatmod':
-                    pm_self.do_chatmod(pm_arg)
+                    buddydb.add_user(pm_arg, 4)
                 elif pm_cmd == prefix + 'rmchatmod':
-                    self.do_remove_chatmod(pm_arg)
+                    buddydb.remove_user(pm_arg)
                 elif pm_cmd == prefix + 'demod':
                     self.do_deop_user(pm_arg)
                 elif pm_cmd == prefix + 'noguest':
@@ -1646,7 +1512,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if _user.user_level == 2:
 
                 if pm_cmd == prefix + 'chatadmin':
-                    self.do_chatadmin(pm_arg)
+                    buddydb.add_user(pm_arg, 2)
 
                 if self.is_client_owner:
 
@@ -1697,17 +1563,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 elif pm_cmd == prefix + 'close':
                     self.do_close_broadcast(pm_arg)
                 elif pm_cmd == prefix + 'badn':
-                    self.do_bad_nick(pm_arg)
+                    buddydb.add_bad_nick(pm_arg)
                 elif pm_cmd == prefix + 'rmbadn':
-                    self.do_remove_bad_nick(pm_arg)
+                    buddydb.remove_bad_nick(pm_arg)
                 elif pm_cmd == prefix + 'banw':
-                    self.do_bad_string(pm_arg)
+                    buddydb.add_bad_word(pm_arg)
                 elif pm_cmd == prefix + 'rmw':
-                    self.do_remove_bad_string(pm_arg)
+                    buddydb.remove_bad_word(pm_arg)
                 elif pm_cmd == prefix + 'bada':
-                    self.do_bad_account(pm_arg)
+                    buddydb.add_bad_account(pm_arg)
                 elif pm_cmd == prefix + 'rmbada':
-                    self.do_remove_bad_account(pm_arg)
+                    buddydb.remove_bad_account(pm_arg)
 
                 elif pm_cmd == prefix + 'dj':
                     threading.Thread(target=self.do_dj,

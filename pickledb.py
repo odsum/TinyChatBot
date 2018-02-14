@@ -29,6 +29,24 @@
 import os
 import simplejson
 
+
+
+def find_list_index(a_list, item):
+    """
+    Finds the index of an item in a list.
+
+    :param a_list: A list to find the index in.
+    :type a_list: list
+    :param item: The item to find the index for.
+    :type item: str
+    :return: The index of the item, or None if not in the list.
+    :rtype: int | None
+    """
+    if item in a_list:
+        for i, value in enumerate(a_list):
+            if value == item:
+                return i
+
 def load(location, option):
     '''Return a pickledb object. location is the path to the json file.'''
     return pickledb(location, option)
@@ -181,13 +199,12 @@ class pickledb(object):
     def dexists(self, name, key):
         '''Determine if a key exists or not'''
         try:
-		if self.db[name][key] is not None:
-            		return 1
-        	else:
+            if self.db[name][key] is not None:
+                return 1
+            else:
 	    		return 0
-	except KeyError:
-            return 0
-
+	    except KeyError:
+                return 0
 
     def deldb(self):
         '''Delete everything from the database'''
