@@ -259,7 +259,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     def on_pending_moderation(self, pending):
         _user = self.users.search(pending['handle'])
         if _user is not None:
-            if _user.level < 6:
+            if _user.user_level < 6:
                 self.send_cam_approve_msg(_user.id)
             else:
                 _user.is_waiting = True
