@@ -16,7 +16,7 @@ from apis import youtube, other, locals_
 import random
 from random import randint
 
-__version__ = '2.2'
+__version__ = '2.2.1'
 
 log = logging.getLogger(__name__)
 
@@ -30,20 +30,9 @@ ban_time = 0
 dj_mode = 0
 djs = []
 lockdown = False
-messages = {}
-
-# User levels
-#7 = 'Guest'
-#6 = 'Not verified'
-#5 = 'Verified'
-#4 = 'Chatroom Moderator'
-#3 = 'Room Moderator'
-#2 = 'Room Administrator'
-#1 = 'Owner/Bot'
-
-# Random password words
+greetings = ["hi","hello","sup","whats up","yo","hey",]
 _KEYWORDS = ["fob", "fobcity", "terima", "halal", "haram", "roses", ]
-
+msgs = {}
 
 class TinychatBot(pinylib.TinychatRTCClient):
     privacy_ = None
@@ -470,23 +459,25 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def check_msg(self, msg):
      
-        # Spam 2.1 Protection ting
+        # Spam 2.2 Protection ting
         # odsum(lucy) //shit hasn't been the same as it was before...
-        # 02.13.18
+        # 02.14.18
 
         ban = False
         spammer = False
         kick = False
        
         msg = self._removeNonAscii(msg)
-        
         chat_words = msg.split(' ')
         total = sum(char.isspace() or char == "0" for char in msg)
         chatr_user = self.active_user.nick
         chatr_account = self.active_user.account 
         msg_time = int(time.time())
-        
+        totalcopies = 0
+        reason = ''       
         spamlevel = 0
+
+        # each word reviewed and scored
 
         for word in chat_words:
             
@@ -494,7 +485,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 spamlevel += 0.25 # for everyword that isn't english word
 
             if not self.isWord(chatr_user):
-                spamlevel += 0.5 # wack nick 
+                spamlevel += 0.25 # wack nick 
 
             if word.isupper():
                 spamlevel += 0.125 # Uppercase word 
@@ -504,60 +495,65 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 ban = True
                 spammer = True
                 spamlevel += 2
+                reason = 'Word ban: '+ lword
+                self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
 
         if total > 100: #if message is larger than 100 characters 
             spamlevel += 0.5 
 
         knownnick = buddydb.find_db_ticket(chatr_user)
 
-
+        # known spammer from our database.
+   
         if knownnick:
-            spamlevel += 0.5
+            spamlevel += 0.25
             spammer = True
+
             if knownnick['account']:
-                spamlevel += 1
-               
-        if msg in messages:
+                spamlevel += 0.5
 
-            spamlevel += 1       
+        for m in msgs:  
 
-            oldmsg = messages[msg]
-            oldmsg_spamlevel = oldmsg['score']
-            oldmsg_spamaccount = oldmsg['account']
-            oldmsg_spammnick = oldmsg['nick']
-            oldmsg_time = oldmsg['time']
+            if msg == m:
+                totalcopies += 1
+                oldmsg = msgs[msg]
+            
+                msgdiff = oldmsg['ts'] - msg_time
 
-            if oldmsg_spamlevel > 1:
-                spamlevel += 1
-                kick = True
+                if totalcopies > 0:
+                    spamlevel += 0.25
 
-            msgdiff = oldmsg_time - msg_time
+                if oldmsg['nick'] == chatr_user:
+                    spamlevel += 0.5
+                    spammer = True
+                    kick = True
+            
+                if msgdiff < 5:
+                    spamlevel += 0.25
 
-            if msgdiff < 5:
-                spamlevel += 1
-                kick = True
+                spamlevel += 0.5
+                reason = 'Spam repeat.'
+            
+        mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time }
 
-        mpkg = {msg:{'score': spamlevel, 'account': chatr_account, 'nick': chatr_user,'time': msg_time }}
+        if spamlevel >= 2.2: 
 
-        if spamlevel >= 2: #if msg spam questionable, add ticket (spammer)
-
-            buddydb.add_ticket(chatr_account, spamlevel, chatr_user, 'spamming')
+            buddydb.add_ticket(chatr_account, spamlevel, chatr_user, reason)
             self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
                                (chatr_user, spamlevel))
 
-        messages.update(mpkg)     
+        msgs.update({'%s' % msg: mpkg}) 
 
         self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Nick: %s Score: %s' %
                                (chatr_user, spamlevel))
-       
-        if len(messages) > 12: #store last 12 messages
-            messages.clear()
 
+        if len(msgs) > 8: #store last 8 messages
+            msgs.clear()
+       
         if self.active_user.user_level > 5:  
 
             if spamlevel > 3:
                 ban = True
-
         if ban:
             time.sleep(0.7)
             if self.active_user.user_level == 6:
@@ -573,7 +569,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if kick:
             self.send_kick_msg(self.active_user.id)
 
-            
+
 # Youtube
 
     def do_play_youtube(self, search_str):
