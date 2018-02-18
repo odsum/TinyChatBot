@@ -100,7 +100,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         threading.Thread(target=self.user_register, args=(_user,)).start()
 
     def on_nick(self, uid, nick):
-        """
+        """
         Received when a user changes nick name.
 
         :param uid: The ID (handle) of the user.
@@ -1244,9 +1244,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         global bad_nick
         global time_join
 
-        buddyusr = self.buddy_db.find_db_user(_user.account)
-
         if _user.account:
+
+            buddyusr = self.buddy_db.find_db_user(_user.account)
 
             if _user.is_owner:
                 _user.user_level = 1  # account owner
@@ -1617,12 +1617,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         time.sleep(5)
         _user = self.users.search(uid)
-        buddyusr = self.buddy_db.find_db_user(_user.account)
-
-        if buddyusr:
-            _welcome = buddyusr['greeting']
+      
 
         if _user is not None:
+              
+            buddyusr = self.buddy_db.find_db_user(_user.account)
+
+            if buddyusr:
+                _welcome = buddyusr['greeting']
+
             if pinylib.CONFIG.B_ALLOW_GUESTS:
                 if pinylib.CONFIG.B_GREET and _user is not None:
 
