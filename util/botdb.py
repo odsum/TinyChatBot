@@ -1,12 +1,13 @@
 # PickleDB Wrapper class by Nortxort (https://github.com/nortxort)
 # Molested by odsum (https://github.com/odsum)
-# 2.12.18 
+# 2.12.18
 # Honoured to work with Nortxort since his bot is why I started playing with python.
 
 
 import os
 import time
 import pickledb
+
 
 def find_list_index(a_list, item):
     """
@@ -24,8 +25,10 @@ def find_list_index(a_list, item):
             if value == item:
                 return i
 
+
 class DataBase:
     """ Pickledb wrapper class. """
+
     def __init__(self, file_name, file_path='', load=False):
         """
         Initialize the DataBase class.
@@ -53,6 +56,19 @@ class DataBase:
         :rtype: pickledb | None
         """
         return self._db
+
+    @property
+    def users(self):
+        """
+        Returns a dictionary of all the users in the database.
+
+        The key will be account name and the
+        value is a dictionary containing user data
+
+        :return: A dictionary of all the users.
+        :rtype: dict
+        """
+        return self._db.dgetall('users')
 
     @property
     def word_bans(self):
@@ -84,7 +100,6 @@ class DataBase:
         """
         return self._db.lgetall('account_bans')
 
-
     def has_db_file(self):
         """
         Check that the given database file name exists at the given path.
@@ -93,7 +108,7 @@ class DataBase:
         :rtype: bool
         """
         if os.path.isfile(self.file_path + self.file_name):
-                return True
+            return True
         return False
 
     def create_db_path(self):
@@ -116,12 +131,12 @@ class DataBase:
         if self._db is None:
             self.load()
 
-        self._db.dcreate('users')           # dict
-        self._db.dcreate('tickets')         # dict
-        self._db.lcreate('word_bans')       # list
-        self._db.lcreate('nick_bans')       # list
-        self._db.lcreate('account_bans')    # list
- 
+        self._db.dcreate('users')  # dict
+        self._db.dcreate('tickets')  # dict
+        self._db.lcreate('word_bans')  # list
+        self._db.lcreate('nick_bans')  # list
+        self._db.lcreate('account_bans')  # list
+
         self._db.dump()
 
     def load(self):
@@ -151,7 +166,7 @@ class DataBase:
         self._db.lextend(list_name, a_list)
         self._db.dump()
 
-    def add_user(self, account, level, reason=''):
+    def add_user(self, account, level, reason='', greet=''):
         """
         Add a user to the database.
 
@@ -163,11 +178,14 @@ class DataBase:
         :type level: int
         :param reason:
         :type reason: str
+        :param greet:
+        :type greet: str
         """
         _data = {
             'level': level,
             'reason': reason,
             'account': account,
+            'greet': greet,
             'ts': int(time.time())
         }
         self._db.dadd('users', (account, _data))
@@ -183,7 +201,7 @@ class DataBase:
         :rtype: dict
         """
         _user = None
-        if self.db.dexists('users', account):
+        if self._db.dexists('users', account):
             _user = self._db.dpop('users', account)
             self._db.dump()
         return _user
@@ -194,8 +212,8 @@ class DataBase:
 
         :param account: The account of the user if available.
         :type account: str
-        :param level: The score of spam for the offense.
-        :type level: int
+        :param score: The score of spam for the offense.
+        :type score: int
         :param reason:
         :type reason: str
         :param nick: The nick of the user.
@@ -219,18 +237,16 @@ class DataBase:
         :return: A dictionary containing the user data, or None if not found.
         :rtype: dict
         """
-        if self.db.dexists('users', account):
-            user = self.db.dget('users', account)
-            return user
-        else:
-            return None
+        if account in self.users:
+            return self.users[account]
+        return None
 
     def find_db_ticket(self, nick):
         """
         Find a nick in a ticket in the database.
 
         :param nick: The nick in ticket.
-        :type account: str
+        :type nick: str
         :return: A dictionary containing the ticket data, or None if not found.
         :rtype: dict
         """

@@ -4,13 +4,18 @@
 Based off Nortxort's Tinychat Bot and Pinylib.
 
 ## Updates
+ 
+2.2.2
+- Announcements:  Update your config.py to include B_ANNOUNCEMENT, to set temporary announcements use !announcement <msg>
+- Moved all cmds to handled at one place, bot responses mostly in private messages now
+- Nortxort fixes to loading database
+- Added back in APIs: weather, 8ball, etc.
 
+2.2
 - Added in new wrapper class written by Nortxort
 	- Old database files not used, you could write a merge script to import that list to new one
-- Spam messaging re-written 
+- Spam messaging re-written (Need testing)
 	- Scoring system to validate messags
-
-
 
 ## Features
 
@@ -39,12 +44,18 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 	- Limits all chatmods and Verified Accounts from using youtube unless a dj is defined.
 	- !djmode and !dj <nick>
 
-- Things to do
+## Road Map
 
-	- Web Interface to Manage bot
-	- Chat log analytics
-	- Vote Banning System
-	- Update to python 3
+3.0 
+- Sqlite for database
+- Web interface to Manage Accounts, bot settings
+- Mulitple rooms where the bot can be to manage
+ 
+2.5 
+- Custom greeting messages per accounts
+- Vote Ban System
+- Clean up forgive, maybe bring in one from Nortxort's TinychatBot
+
 
 ## Commands
 
@@ -86,7 +97,7 @@ pinylib-rtc requires 4 libraries that are not part of the standard python librar
 
 These can all be installed form a command prompt with pip.
 
-`pip install websocket-client requests colorama beautifulsoup4 pycryto`
+`pip install websocket-client requests colorama beautifulsoup4`
 
 
 ## Run the client

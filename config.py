@@ -4,6 +4,7 @@ ACCOUNT = ''
 PASSWORD = ''
 BOTNICK = ''
 ROOM = ''
+B_ANNOUNCEMENT = 'Default Room Announcement, thanks for using Buddybot by odsum.  !annoucement <msg> to change.'
 
 # Fallback rtc version.
 FALLBACK_RTC_VERSION = '2.0.22-4'

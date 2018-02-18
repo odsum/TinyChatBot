@@ -1,38 +1,37 @@
 # -*- coding: utf-8 -*-
-""" Buddybot by odsum (https://github.com/odsum) """
-""" Based off Tinybot by Nortxort (https://github.com/nortxort/tinybot-rtc) """
+"""
+Buddybot by odsum (https://github.com/odsum)
+Based off Tinybot by Nortxort (https://github.com/nortxort/tinybot-rtc)
+"""
 
-import time
 import logging
 import threading
-import os
-import pinylib
-import botdb
-
-from page import privacy
-from util import tracklist
-from apis import youtube, other, locals_
-
+import time
 import random
-from random import randint
 
-__version__ = '2.2.1'
+import pinylib
+from apis import youtube, other, locals_
+from page import privacy
+from util import tracklist, botdb
+
+__version__ = '2.2.2'
 
 log = logging.getLogger(__name__)
 
 joind_time = 0
 joind_count = 0
+
 bad_nick = 0
 autoban_time = 0
 autoban_count = 0
-newnick = 0
 ban_time = 0
+lockdown = False
+
 dj_mode = 0
 djs = []
-lockdown = False
-greetings = ["hi","hello","sup","whats up","yo","hey",]
-_KEYWORDS = ["fob", "fobcity", "terima", "halal", "haram", "roses", ]
+
 msgs = {}
+tmp_announcement = None
 
 class TinychatBot(pinylib.TinychatRTCClient):
     privacy_ = None
@@ -46,9 +45,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """ Returns the path to the rooms configuration directory. """
         return pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/'
 
-    global buddydb 
-    path = pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/'
-    buddydb = botdb.DataBase('users', path)
+    def db_setup(self):
+        self.buddy_db = botdb.DataBase('users', self.config_path)
+
+        if not self.buddy_db.has_db_file():
+            self.buddy_db.create_db_path()
+            self.buddy_db.create_defaults()
+            self.console_write(pinylib.COLOR['green'], '[DB] Created')
+
+        self.buddy_db.load()
+        self.console_write(pinylib.COLOR['green'], '[DB] Loaded')
 
     def on_joined(self, client_info):
         """
@@ -62,18 +68,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.is_client_mod = client_info['mod']
         self.is_client_owner = client_info['owner']
         client = self.users.add(client_info)
-        client.user_level = 2 
+        client.user_level = 2
         self.console_write(pinylib.COLOR['white'], '[Bot] connected as %s:%s' % (client.nick, client.id))
 
         threading.Thread(target=self.options).start()
 
-        if not buddydb.has_db_file():
-            buddydb.create_db_path()
-            buddydb.create_defaults()
-            self.console_write(pinylib.COLOR['green'], '[DB] Created')
-        else:
-            buddydb.load()
-            self.console_write(pinylib.COLOR['green'], '[DB] Loaded')
+        self.db_setup()
 
     def on_join(self, join_info):
         """
@@ -83,11 +83,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :type join_info: dict
         """
 
-        global joind_time
-        global joind_count
-        global autoban_time
-        global lockdown
-        global bad_nick
         global time_join
 
         time_join = time.time()
@@ -95,167 +90,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
         log.info('user join info: %s' % join_info)
         _user = self.users.add(join_info)
 
-        if buddydb.find_db_nick_bans(_user.nick):
+        if _user.nick in self.buddy_db.nick_bans:
             if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                 self.send_kick_msg(_user.id)
             else:
                 self.send_ban_msg(_user.id)
                 self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % (_user.nick))
 
-        threading.Thread(target=self.user_register, args=(_user,)).start()    
-
-
-    def user_register(self,_user):
-
-        global joind_time
-        global joind_count
-        global autoban_time
-        global lockdown
-        global bad_nick
-        global time_join
-
-        buddyusr = buddydb.find_db_user(_user.account)
-
-        if _user.account:
-          
-            if _user.is_owner:
-                _user.user_level = 1 # account owner
-                self.console_write(pinylib.COLOR['cyan'], '[User] Room Owner %s:%d:%s' %
-                                   (_user.nick, _user.id, _user.account))
-            elif _user.is_mod:
-                _user.user_level = 3 # mod
-                self.console_write(pinylib.COLOR['cyan'], '[User] Moderator %s:%d:%s' %
-                                   (_user.nick, _user.id, _user.account))
-    
-            if buddyusr:
-                _level = buddyusr['level']
-              
-                if _level == 4 and not _user.is_mod:
-                      _user.user_level = _level # chatmod
-
-                if _level == 5 and not _user.is_mod:
-                      _user.user_level = _level # whitelist 
-
-                if _level == 2: # overwrite mod to chatadmin
-                      _user.user_level = _level
-
-                self.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (_user.user_level, _user.nick, _user.id, _user.account))
-            
-            else:
-                if not _user.user_level:
-                    _user.user_level = 6 # account not verified
-                    self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (
-                        _user.nick, _user.id, _user.account))
-
-            if buddydb.find_db_account_bans(_user.account) and self.is_client_mod:
-                if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                     self.send_kick_msg(_user.id)
-                else:
-                    self.send_ban_msg(_user.id)
-                    self.console_write(
-                        pinylib.COLOR['red'], '[Security] Banned: Account %s' % (_user.account))
-            else:
-
-                tc_info = pinylib.apis.tinychat.user_info(_user.account)
-                  
-                if tc_info is not None:
-                    _user.tinychat_id = tc_info['tinychat_id']
-                    _user.last_login = tc_info['last_active']
-
-        else:
-            _user.user_level = 7 # guest
-            self.console_write(
-                pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
-
-
-# Lockdown 
-# odsum
-
-        if lockdown and autoban_time != 0:
-            if time_join - 240 > autoban_time: #reset after X seconds locakdown
-                if lockdown == 1:
-                    soft = 1
-                    self.do_lockdown(soft)
-                    autoban_time = 0
-                    bad_nick = 0
-                    self.console_write(
-                        pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
-        else:
-
-            maxtime = 15  # Reset check in X seconds
-            maxjoins = 5  # maxjoins in maxtime
-
-            if joind_time == 0:
-                joind_time = time.time()
-                joind_count += 1
-
-            elif time_join - joind_time > maxtime:
-                joind_count = 0
-                joind_time = 0
-                bad_nick = 0
-
-            elif joind_count > maxjoins:
-
-                soft = 0
-                self.do_lockdown(soft)
-                autoban_time = time_join
-                self.console_write(
-                    pinylib.COLOR['red'], '[Security] Lockdown started')
-            else:
-                joind_count += 1
-
-                if not self.isWord(_user.nick):
-                    bad_nick += 1
-
-        if bad_nick > 1:
-                time.sleep(1.2)
-                self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))
-
-        if not pinylib.CONFIG.B_ALLOW_GUESTS:
-            if _user.user_level == 7:
-                self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % (_user.nick))
-
-        self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
-            _user.nick, _user.id, joind_count))
-
-        threading.Thread(target=self.welcome, args=(_user.id,)).start()
-
-    def welcome(self, uid):
-        time.sleep(5)
-        _user = self.users.search(uid)
-
-        if _user is not None:
-            if pinylib.CONFIG.B_ALLOW_GUESTS:
-                if pinylib.CONFIG.B_GREET and _user is not None:
-                    if not _user.nick.startswith('guest-'):
-                        if _user.user_level < 4:
-                            pass
-                            #self.send_private_msg(_user.id, 'You have Mod access - !help')
-                        elif _user.user_level == 5:
-                            pass
-                            #self.send_private_msg(_user.id, 'You are verified, you add to the Youtube social playlist via !yt - Other cmds type !help')
-                        elif _user.user_level == 6:
-                            #self.send_private_msg(_user.id, 'Welcome to %s - ask to have your account verified.' % (self.room_name))
-                            self.send_chat_msg(
-                                'Welcome to %s %s(%s) - ask to have your account verified.' % (self.room_name, _user.nick), _user.account)
-                        elif _user.user_level == 7:
-                            #self.send_private_msg(_user.id, 'Welcome to %s - we suggest making an account, personal info trolling or sexual harassment will not be tolerated.' % (self.room_name))
-                            self.send_chat_msg('Welcome to %s %s, we suggest making an account.' % (
-                                self.room_name, _user.nick))
-
-    def on_pending_moderation(self, pending):
-        _user = self.users.search(pending['handle'])
-        if _user is not None:
-            if _user.user_level < 6:
-                self.send_cam_approve_msg(_user.id)
-            else:
-                _user.is_waiting = True
-                self.send_chat_msg('%s is waiting in the greenroom.' % (_user.nick))
+        threading.Thread(target=self.user_register, args=(_user,)).start()
 
     def on_nick(self, uid, nick):
-        """
+        """
         Received when a user changes nick name.
 
         :param uid: The ID (handle) of the user.
@@ -268,7 +113,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         _user.nick = nick
 
         if uid != self.client_id:
-            if buddydb.find_db_nick_bans(_user.nick):
+            if _user.nick in self.buddy_db.nick_bans:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                     self.send_kick_msg(uid)
                 else:
@@ -277,8 +122,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.console_write(pinylib.COLOR['bright_cyan'], '[User] %s:%s Changed nick to: %s' %
                                    (old_nick, uid, nick))
 
-
-    
     def do_op_user(self, user_name):
         """ 
         Lets the room owner, a mod or a bot controller make another user a bot controller.
@@ -288,12 +131,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         if self.is_client_mod:
             if len(user_name) is 0:
-                self.send_chat_msg('Missing username.')
+                self.send_private_msg(self.active_user.id, 'Missing username.')
             else:
                 _user = self.users.search_by_nick(user_name)
                 if _user is not None:
                     _user.user_level = 4
-                    self.send_chat_msg('No user named: %s' % user_name)
+                    self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
 
     def do_deop_user(self, user_name):
         """ 
@@ -304,7 +147,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         if self.is_client_mod:
             if len(user_name) is 0:
-                self.send_chat_msg('Missing username.')
+                self.send_private_msg(self.active_user.id, 'Missing username.')
             else:
                 _user = self.users.search_by_nick(user_name)
 
@@ -314,12 +157,54 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         _user.user_level == 6
                     else:
                         _user.user_level == 7
-                        self.send_chat_msg('No user named: %s' % user_name)
+                        self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
 
     def do_clear(self):
         """ Clears the chat box. """
         self.send_chat_msg('\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'
                            '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n')
+
+    def do_user_info(self, user_name):
+        """
+        Shows user object info for a given user name.
+        :param user_name: The user name of the user to show the info for.
+        :type user_name: str
+        """
+
+        buddyusr = self.buddy_db.find_db_user(user_name)
+
+        if buddyusr:
+            _welcome = buddyusr['welcome']
+            _added = buddyusr['ts']
+
+        if self.is_client_mod:
+            if len(user_name) is 0:
+                self.send_private_msg(self.active_user.id, 'Missing username.')
+            else:
+                _user = self.users.search_by_nick(user_name)
+                if _user is None:
+                    self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+                else:
+                    if _user.account and _user.tinychat_id is None:
+                        user_info = pinylib.apis.tinychat.user_info(_user.account)
+                        if user_info is not None:
+                            _user.tinychat_id = user_info['tinychat_id']
+                            _user.last_login = user_info['last_active']
+                    online_time = (pinylib.time.time() - _user.join_time)
+
+                    info = [
+                        'User Level: ' + str(_user.user_level),
+                        'Online Time: ' + self.format_time(online_time),
+                        'Last Message: ' + str(_user.last_msg)
+                    ]
+                    if _user.tinychat_id is not None:
+                        info.append('Account: ' + str(_user.account))
+                        info.append('Tinychat ID: ' + str(_user.tinychat_id))
+                        info.append('Last Login: ' + _user.last_login)
+
+                    self.send_private_msg(self.active_user.id, '\n'.join(info))
+
+    # == Bot Police ==
 
     def do_kick(self, user_name):
         """ 
@@ -330,9 +215,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         if self.is_client_mod:
             if len(user_name) is 0:
-                self.send_chat_msg('Missing username.')
+                self.send_private_msg(self.active_user.id, 'Missing username.')
             elif user_name == self.nickname:
-                self.send_chat_msg('Action not allowed.')
+                self.send_private_msg(self.active_user.id, 'Action not allowed.')
             else:
                 if user_name.startswith('*'):
                     user_name = user_name.replace('*', '')
@@ -345,36 +230,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
-                        self.send_chat_msg('No user named: %s' % user_name)
+                        self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
                     elif _user.user_level < self.active_user.user_level:
                         self.send_chat_msg(
                             'imma let ya guys figure that out...')
                     else:
                         self.send_kick_msg(_user.id)
-
-    def do_forgive(self, nick_name):
-        """
-        Forgive a user based on if their user id (uid) is found in the room's ban list.
-        :param nick_name: str the nick name of the user that was banned.
-        """
-        global banlist
-        forgiven = False
-
-        if self.is_client_mod:
-            if len(nick_name) is 0:
-                self.send_chat_msg(
-                    ' Please state a nick to forgive from the ban list.')
-            else:
-                for item in banlist['items']:
-                    if item['nick'] == nick_name:
-                        self.users.delete_banned_user(item)
-                        self.send_unban_msg(item['id'])
-                        forgiven = True
-                    else:
-                        self.send_chat_msg(
-                            nick_name + ' was not found in the banlist')
-                if forgiven:
-                    self.send_chat_msg(nick_name + ' was forgiven.')
 
     def do_ban(self, user_name):
         """ 
@@ -385,9 +246,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         if self.is_client_mod:
             if len(user_name) is 0:
-                self.send_chat_msg('Missing username.')
+                self.send_private_msg(self.active_user.id, 'Missing username.')
             elif user_name == self.nickname:
-                self.send_chat_msg('Action not allowed.')
+                self.send_private_msg(self.active_user.id, 'Action not allowed.')
             else:
                 if user_name.startswith('*'):
                     user_name = user_name.replace('*', '')
@@ -400,12 +261,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
-                        self.send_chat_msg('No user named: %s' % user_name)
+                        self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
                     elif _user.user_level < self.active_user.user_level:
                         self.send_chat_msg(
                             'i dont wanna be a part of ya problems..')
                     else:
                         self.send_ban_msg(_user.id)
+
+    # == Tinychat Broadcasting ==
 
     def do_cam_approve(self, user_name):
         """
@@ -420,7 +283,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_cam_approve_msg(_user.id)
                 _user.is_broadcasting = True
         else:
-            self.send_chat_msg('No user named: %s' % user_name)
+            self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
 
     def do_close_broadcast(self, user_name):
         """
@@ -431,146 +294,329 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         if self.is_client_mod:
             if len(user_name) == 0:
-                self.send_chat_msg('Mising user name.')
+                self.send_private_msg(self.active_user.id, 'Mising user name.')
             else:
                 _user = self.users.search_by_nick(user_name)
                 if _user is not None and _user.is_broadcasting:
                     self.send_close_user_msg(_user.id)
                 else:
-                    self.send_chat_msg('No user named: %s' % user_name)
+                    self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
 
-    def do_help(self):
-        """ Posts a link to github readme/wiki or other page about the bot commands. """
+    def on_pending_moderation(self, pending):
+        _user = self.users.search(pending['handle'])
+        if _user is not None:
+            if _user.user_level < 6:
+                self.send_cam_approve_msg(_user.id)
+            else:
+                _user.is_waiting = True
+                self.send_chat_msg('%s is waiting in the greenroom.' % (_user.nick))
 
-        if self.active_user.user_level < 5:
-            time.sleep(1)
-            self.send_private_msg(
-                self.active_user.id, 'Mod Cmds: !clr, !kick, !ban, !cam, !close, !bada  <account>, !banw <badword>,!rmw <badword>, !rmbad <account>, !badn <nick>, !rmv, !v')
-        if self.active_user.user_level == 5:
-            time.sleep(4)
-            self.send_private_msg(
-                self.active_user.id, 'Media Cmds: !yt, !close, !seek, !reset, !spl, !del, !skip, !yts, !rpl, !pause, !play, !pyst')
-        if self.active_user.user_level < 4:
-            time.sleep(1)
-            self.send_private_msg(
-                self.active_user.id, 'Admin Cmds: !lockdown (noguests), !lockup(password enabled), !chatmod, !dechatmode, !noguest')
+    # == Bot Cmd Handler ==
 
-    def _removeNonAscii(self,s): return "".join(i for i in s if ord(i)<128)
+    def cmd_handler(self, msg):
 
-    def check_msg(self, msg):
-     
-        # Spam 2.2 Protection ting
-        # odsum(lucy) //shit hasn't been the same as it was before...
-        # 02.14.18
+        prefix = pinylib.CONFIG.B_PREFIX
 
-        ban = False
-        spammer = False
-        kick = False
-       
-        msg = self._removeNonAscii(msg)
-        chat_words = msg.split(' ')
-        total = sum(char.isspace() or char == "0" for char in msg)
-        chatr_user = self.active_user.nick
-        chatr_account = self.active_user.account 
-        msg_time = int(time.time())
-        totalcopies = 0
-        reason = ''       
-        spamlevel = 0
+        parts = msg.split(' ')
+        cmd = parts[0].lower().strip()
+        cmd_arg = ' '.join(parts[1:]).strip()
+        cmd_extra = ' '.join(parts[2:]).strip()
+        cmd_extend = ' '.join(parts[3:]).strip()
 
-        # each word reviewed and scored
+        _user = self.users.search_by_nick(self.active_user.nick)
 
-        for word in chat_words:
-            
-            if not self.isWord(word):
-                spamlevel += 0.25 # for everyword that isn't english word
+        # == Moderator level ==
 
-            if not self.isWord(chatr_user):
-                spamlevel += 0.25 # wack nick 
+        if _user.user_level < 4:
 
-            if word.isupper():
-                spamlevel += 0.125 # Uppercase word 
+            if cmd == prefix + 'chatmod':
+                self.buddy_db.add_user(cmd_arg, 4)
+                self.send_private_msg(_user.id, '%s was added to Chat Mods.' % (cmd_arg))
 
-            lword = word.lower()
-            if buddydb.find_db_word_bans(lword):
-                ban = True
-                spammer = True
-                spamlevel += 2
-                reason = 'Word ban: '+ lword
-                self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
+            elif cmd == prefix + 'rmchatmod':
+                self.buddy_db.remove_user(cmd_arg)
+                self.send_private_msg(_user.id, '%s was removed from Chat Mods.' % (cmd_arg))
 
-        if total > 100: #if message is larger than 100 characters 
-            spamlevel += 0.5 
+            elif cmd == prefix + 'noguest':
+                self.do_guests()
 
-        knownnick = buddydb.find_db_ticket(chatr_user)
+            if cmd == prefix + 'lockdown':
+                self.do_lockdown(1)
 
-        # known spammer from our database.
-   
-        if knownnick:
-            spamlevel += 0.25
-            spammer = True
+            if self.is_client_owner:
+                if cmd == prefix + 'lockup':
+                    self.do_lockdown(0)
 
-            if knownnick['account']:
-                spamlevel += 0.5
+            if cmd == prefix + 'announcement':
+                self.do_announcement(cmd_arg)
 
-        for m in msgs:  
+        # == Administrator/Owner Level ==
 
-            if msg == m:
-                totalcopies += 1
-                oldmsg = msgs[msg]
-            
-                msgdiff = oldmsg['ts'] - msg_time
+        if _user.user_level == 2:
 
-                if totalcopies > 0:
-                    spamlevel += 0.25
+            if cmd == prefix + 'chatadmin':
+                self.buddy_db.add_user(cmd_arg, 2)
+                self.send_private_msg(_user.id, '%s was removed from Chat Admins.' % (cmd_arg))
 
-                if oldmsg['nick'] == chatr_user:
-                    spamlevel += 0.5
-                    spammer = True
-                    kick = True
-            
-                if msgdiff < 5:
-                    spamlevel += 0.25
+            elif cmd == prefix + 'rmchatadmin':
+                self.buddy_db.remove_user(cmd_arg)
+                self.send_private_msg(_user.id, '%s was removed from Chat Admins.' % (cmd_arg))
 
-                spamlevel += 0.5
-                reason = 'Spam repeat.'
-            
-        mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time }
+            if self.is_client_owner:
 
-        if spamlevel >= 2.2: 
+                if cmd == prefix + 'p2t':
+                    threading.Thread(target=self.do_push2talk).start()
+                elif cmd == prefix + 'greet':
+                    self.do_greet()
+                elif cmd == prefix == 'kb':
+                    self.do_kick_as_ban()
+                elif cmd == prefix + 'reboot':
+                    self.do_reboot()
+                elif cmd == prefix + 'dir':
+                    threading.Thread(target=self.do_directory).start()
+                elif cmd == prefix + 'addmod':
+                    threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
+                elif cmd == prefix + 'removemod':
+                    threading.Thread(target=self.do_remove_mod, args=(cmd_arg,)).start()
 
-            buddydb.add_ticket(chatr_account, spamlevel, chatr_user, reason)
-            self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
-                               (chatr_user, spamlevel))
+        # == Moderator level users ==
 
-        msgs.update({'%s' % msg: mpkg}) 
+        if _user.user_level < 5:
 
-        self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Nick: %s Score: %s' %
-                               (chatr_user, spamlevel))
+            if cmd == prefix + 'mod':
+                self.do_op_user(cmd_arg)
+            elif cmd == prefix + 'demod':
+                self.do_deop_user(cmd_args)
 
-        if len(msgs) > 8: #store last 8 messages
-            msgs.clear()
-       
-        if self.active_user.user_level > 5:  
+            elif cmd == prefix + 'who':
+                self.do_user_info(cmd_arg)
+            elif cmd == prefix + 'v':
+                self.buddy_db.add_user(cmd_arg, 5)
+                self.send_private_msg(_user.id, '%s was added to verified accounts.' % (cmd_arg))
+            elif cmd == prefix + 'rmv':
+                self.buddy_db.remove_user(cmd_arg)
+                self.send_private_msg(_user.id, '%s was removed from verified accounts.' % (cmd_arg))
+            elif cmd == prefix + 'clr':
+                self.do_clear()
+            elif cmd == prefix + 'forgive':
+                threading.Thread(target=self.do_forgive,
+                                 args=(cmd_arg,)).start()
+            elif cmd == prefix + 'kick':
+                threading.Thread(target=self.do_kick,
+                                 args=(cmd_arg,)).start()
+            elif cmd == prefix + 'ban':
+                threading.Thread(target=self.do_ban,
+                                 args=(cmd_arg,)).start()
 
-            if spamlevel > 3:
-                ban = True
-        if ban:
-            time.sleep(0.7)
-            if self.active_user.user_level == 6:
-                if spammer:
-                    buddydb.add_bad_account(self.active_user.account)
-                    spammer = False
-                    self.send_ban_msg(self.active_user.id)
+            elif cmd == prefix + 'cam':
+                self.do_cam_approve(cmd_arg)
+            elif cmd == prefix + 'close':
+                self.do_close_broadcast(cmd_arg)
+            elif cmd == prefix + 'badn':
+                self.buddy_db.add_user(cmd_arg)
+                self.send_private_msg(_user.id, '%s was added to bad nicks' % (cmd_arg))
+            elif cmd == prefix + 'rmbadn':
+                self.buddy_db.remove_bad_nick(cmd_arg)
+                self.send_private_msg(_user.id, '%s was removed from bad nicks.' % (cmd_arg))
+            elif cmd == prefix + 'banw':
+                self.buddy_db.add_bad_word(cmd_arg)
+                self.send_private_msg(_user.id, '%s was added to banned words.' % (cmd_arg))
+            elif cmd == prefix + 'rmw':
+                self.buddy_db.remove_bad_word(cmd_arg)
+                self.send_private_msg(_user.id, '%s was removed from banned words.' % (cmd_arg))
+            elif cmd == prefix + 'bada':
+                self.buddy_db.add_bad_account(cmd_arg)
+                self.send_private_msg(_user.id, '%s was added to banned accounts.' % (cmd_arg))
+            elif cmd == prefix + 'rmbada':
+                self.buddy_db.remove_bad_account(cmd_arg)
+                self.send_private_msg(_user.id, '%s was removed from banned accounts.' % (cmd_arg))
 
-            elif len(self.active_user.account) is 0:
-                if spammer:
-                    spammer = False
-                    self.send_ban_msg(self.active_user.id)
-        if kick:
-            self.send_kick_msg(self.active_user.id)
+            if cmd == prefix + 'dj':
+                threading.Thread(target=self.do_dj,
+                                 args=(cmd_arg,)).start()
+            elif cmd == prefix + 'djmode':
+                self.do_dj_mode()
 
+        # == Known accounts only ==
 
-# Youtube
+        if _user.user_level < 6:
+
+            isdj = 0
+            canplay = 1
+
+            if dj_mode:
+                canplay = 0
+
+            if _user.account in djs:
+                canplay = 1
+            else:
+                canplay = 0
+
+            if cmd == prefix + 'skip':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_skip()
+
+            elif cmd == prefix + 'media':
+                self.do_media_info()
+
+            elif cmd == prefix + 'yt':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    threading.Thread(
+                        target=self.do_play_youtube, args=(cmd_arg,)).start()
+
+            elif cmd == prefix + 'yts':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    threading.Thread(
+                        target=self.do_youtube_search, args=(cmd_arg,)).start()
+
+            elif cmd == prefix + 'del':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_delete_playlist_item(cmd_arg)
+
+            elif cmd == prefix + 'replay':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_media_replay()
+
+            elif cmd == prefix + 'play':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_play_media()
+
+            elif cmd == prefix + 'pause':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_media_pause()
+
+            elif cmd == prefix + 'seek':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_seek_media(cmd_arg)
+
+            elif cmd == prefix + 'stop':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_close_media()
+
+            elif cmd == prefix + 'reset':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_clear_playlist()
+
+            elif cmd == prefix + 'next':
+                if not canplay:
+                    self.do_djmsg()
+                else:
+                    self.do_next_tune_in_playlist()
+
+            elif cmd == prefix + 'playlist':
+                self.do_playlist_info()
+            elif cmd == prefix + 'pyts':
+                self.do_play_youtube_search(cmd_arg)
+            elif cmd == prefix + 'pls':
+                threading.Thread(
+                    target=self.do_youtube_playlist_search, args=(cmd_arg,)).start()
+            elif cmd == prefix + 'plp':
+                threading.Thread(
+                    target=self.do_play_youtube_playlist, args=(cmd_arg,)).start()
+            elif cmd == prefix + 'ssl':
+                self.do_show_search_list()
+            elif cmd == prefix + 'help':
+                self.do_help()
+            elif cmd == prefix + 'whatsong':
+                self.do_now_playing()
+
+            if cmd == prefix + 'status':
+                self.do_playlist_status()
+            elif cmd == prefix + 'now':
+                self.do_now_playing()
+            elif cmd == prefix + 'whoplayed':
+                self.do_who_plays()
+
+        # == Any user can access ==
+        # == Tinychat API Cmds ==
+        if cmd == prefix + 'acspy':
+            threading.Thread(target=self.do_account_spy, args=(cmd_arg,)).start()
+
+        # == Other Cmds ==
+        if cmd == prefix + 'urb':
+            threading.Thread(target=self.do_search_urban_dictionary, args=(cmd_arg,)).start()
+
+        elif cmd == prefix + 'wea':
+            threading.Thread(target=self.do_weather_search, args=(cmd_arg,)).start()
+
+        elif cmd == prefix + 'ip':
+            threading.Thread(target=self.do_whois_ip, args=(cmd_arg,)).start()
+
+        # == Fun APIs ==
+        elif cmd == prefix + 'cn':
+            threading.Thread(target=self.do_chuck_noris).start()
+
+        elif cmd == prefix + '8ball':
+            self.do_8ball(cmd_arg)
+
+        elif cmd == prefix + 'roll':
+            self.do_dice()
+
+        elif cmd == prefix + 'flip':
+            self.do_flip_coin()
+
+        self.console_write(pinylib.COLOR['green'], self.active_user.nick + ': ' + cmd + ' ' + cmd_arg)
+
+    def message_handler(self, msg):
+        """
+        A basic handler for chat messages.
+
+        Overrides message_handler in pinylib
+        to allow commands.
+
+        :param msg: The chat message.
+        :type msg: str
+        """
+        prefix = pinylib.CONFIG.B_PREFIX
+
+        if msg.startswith(prefix):
+            self.cmd_handler(msg)
+
+        else:
+            if self.active_user.user_level > 4:
+                threading.Thread(target=self.check_msg, args=(msg,)).start()
+
+            self.console_write(pinylib.COLOR['white'], self.active_user.nick + ': ' + msg)
+            self.active_user.last_msg = msg
+
+    def private_message_handler(self, private_msg):
+        """
+        Private message handler.
+
+        Overrides private_message_handler in pinylib
+        to enable private commands.
+
+        :param private_msg: The private message.
+        :type private_msg: str
+        """
+        prefix = pinylib.CONFIG.B_PREFIX
+
+        if private_msg.startswith(prefix):
+            self.cmd_handler(private_msg)
+
+        self.console_write(pinylib.COLOR['white'], '[PRIMSG] %s: %s' % (self.active_user.nick, private_msg))
+
+    # Youtube (Nortxort)
 
     def do_play_youtube(self, search_str):
         """ 
@@ -653,6 +699,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     '%s requested this track %s ago.' % (track.owner, ago))
             else:
                 self.send_chat_msg('No track playing.')
+
     def do_media_replay(self):
         """ Replay the currently playing track. """
         if self.is_client_mod:
@@ -803,7 +850,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             else:
                 self.send_chat_msg(
                     'The search list only contains youtube playlist id\'s.')
-    
+
     def on_yut_play(self, yt_data):
         """
         Received when a youtube gets started or time searched.
@@ -999,15 +1046,425 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     else:
 
                         self.send_chat_msg('Nothing was deleted.')
-# Utils Buddybot
 
-    def do_create_password(self):
-        global _KEYWORDS
-        word = random.choice(_KEYWORDS)
-        numbers = str(randint(100, 999))
-        xpassword = word + numbers
+    def do_media_info(self):
+        """ Show information about the currently playing youtube. """
+        if self.is_client_mod and self.playlist.has_active_track:
+            self.send_chat_msg(
+                'Playlist Tracks: ' + str(len(self.playlist.track_list)) + '\n' +
+                'Track Title: ' + self.playlist.track.title + '\n' +
+                'Track Index: ' + str(self.playlist.track_index) + '\n' +
+                'Elapsed Track Time: ' + self.format_time(self.playlist.elapsed) + '\n' +
+                'Remaining Track Time: ' +
+                self.format_time(self.playlist.remaining)
+            )
 
-        return xpassword
+    # == Tinychat Owner / Utils ==
+
+    def do_make_mod(self, account):
+        """
+        Make a tinychat account a room moderator.
+
+        :param account: The account to make a moderator.
+        :type account: str
+        """
+        if self.is_client_owner:
+            if len(account) is 0:
+                self.send_private_msg(self.active_user.id, 'Missing account name.')
+            else:
+                tc_user = self.privacy_.make_moderator(account)
+                if tc_user is None:
+                    self.send_private_msg(self.active_user.id, 'The account is invalid.')
+                elif not tc_user:
+                    self.send_private_msg(self.active_user.id, '%s is already a moderator.' % (account))
+                elif tc_user:
+                    self.send_private_msg(self.active_user.id, '%s was made a room moderator.' % (account))
+
+    def do_remove_mod(self, account):
+        """
+        Removes a tinychat account from the moderator list.
+
+        :param account: The account to remove from the moderator list.
+        :type account: str
+        """
+        if self.is_client_owner:
+            if len(account) is 0:
+                self.send_private_msg(self.active_user.id, 'Missing account name.')
+            else:
+                tc_user = self.privacy_.remove_moderator(account)
+                if tc_user:
+                    self.send_private_msg(self.active_user.id, '%s is no longer a room moderator.' % (account))
+                elif not tc_user:
+                    self.send_private_msg(self.active_user.id, '%s is not a room moderator.' % (account))
+
+    def do_directory(self):
+        """ Toggles if the room should be shown on the directory. """
+        if self.is_client_owner:
+            if self.privacy_.show_on_directory():
+                self.send_private_msg(self.active_user.id, 'Room IS shown on the directory.')
+            else:
+                self.send_private_msg(self.active_user.id, 'Room is NOT shown on the directory.')
+
+    def do_push2talk(self):
+        """ Toggles if the room should be in push2talk mode. """
+        if self.is_client_owner:
+            if self.privacy_.set_push2talk():
+                self.send_private_msg(self.active_user.id, 'Push2Talk is enabled.')
+            else:
+                self.send_private_msg(self.active_user.id, 'Push2Talk is disabled.')
+
+    def do_green_room(self):
+        """ Toggles if the room should be in greenroom mode. """
+        if self.is_client_owner:
+            if self.privacy_.set_greenroom():
+                self.send_private_msg(self.active_user.id,'Green room is enabled.')
+            else:
+                self.send_private_msg(self.active_user.id,'Green room is disabled.')
+
+    def do_clear_room_bans(self):
+        """ Clear all room bans. """
+        if self.is_client_owner:
+            if self.privacy_.clear_bans():
+                self.send_private_msg(self.active_user.id, 'All room bans was cleared.')
+
+    def do_kill(self):
+        """ Kills the bot. """
+        self.disconnect()
+
+    def do_reboot(self):
+        """ Reboots the bot. """
+        self.reconnect()
+
+    def options(self):
+        """ Load/set special options. """
+
+        log.info('options: is_client_owner: %s, is_client_mod: %s' %
+                 (self.is_client_owner, self.is_client_mod))
+
+        if self.is_client_owner:
+            self.get_privacy_settings()
+
+        if self.is_client_mod:
+            self.send_banlist_msg()
+
+    def get_privacy_settings(self):
+        """ Parse the privacy settings page. """
+        log.info('Parsing %s\'s privacy page.' % self.account)
+        self.privacy_ = privacy.Privacy(proxy=None)
+        self.privacy_.parse_privacy_settings()
+
+    def do_guests(self):
+        """ Toggles if guests are allowed to join the room or not. """
+        pinylib.CONFIG.B_ALLOW_GUESTS = not pinylib.CONFIG.B_ALLOW_GUESTS
+        self.send_private_msg(self.active_user.id, 'Allow Guests: %s' % pinylib.CONFIG.B_ALLOW_GUESTS)
+
+    def do_greet(self):
+        """ Toggles if users should be greeted on entry. """
+        pinylib.CONFIG.B_GREET = not pinylib.CONFIG.B_GREET
+        self.send_private_msg(self.active_user.id, 'Greet Users: %s' % pinylib.CONFIG.B_GREET)
+
+    def do_kick_as_ban(self):
+        """ Toggles if kick should be used instead of ban for auto bans . """
+        pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN = not pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN
+        self.send_private_msg(self.active_user.id, 'Use Kick As Auto Ban: %s' %
+                           pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN)
+
+    # == Python Timer Functions  ==
+
+    def timer_event(self):
+        """ This gets called when the timer has reached the time. """
+        if len(self.playlist.track_list) > 0:
+            if self.playlist.is_last_track:
+                if self.is_connected:
+                    self.send_chat_msg('Resetting playlist.')
+                self.playlist.clear()
+            else:
+                track = self.playlist.next_track
+                if track is not None and self.is_connected:
+                    self.send_yut_play(track.id, track.time, track.title)
+                self.timer(track.time)
+
+    def timer(self, event_time):
+        """
+        Track event timer.
+
+        This will cause an event to occur once the time is done.
+
+        :param event_time: The time in seconds for when an event should occur.
+        :type event_time: int | float
+        """
+        self.timer_thread = threading.Timer(event_time, self.timer_event)
+        self.timer_thread.start()
+
+    def cancel_timer(self):
+        """ Cancel the track timer. """
+        if self.timer_thread is not None:
+            if self.timer_thread.is_alive():
+                self.timer_thread.cancel()
+                self.timer_thread = None
+                return True
+            return False
+        return False
+
+    @staticmethod
+    def format_time(time_stamp, is_milli=False):
+        """ 
+        Converts a time stamp as seconds or milliseconds to (day(s)) hours minutes seconds.
+
+        :param time_stamp: Seconds or milliseconds to convert.
+        :param is_milli: The time stamp to format is in milliseconds.
+        :return: A string in the format (days) hh:mm:ss
+        :rtype: str
+        """
+        if is_milli:
+            m, s = divmod(time_stamp / 1000, 60)
+        else:
+            m, s = divmod(time_stamp, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+
+        if d == 0 and h == 0:
+            human_time = '%02d:%02d' % (m, s)
+        elif d == 0:
+            human_time = '%d:%02d:%02d' % (h, m, s)
+        else:
+            human_time = '%d Day(s) %d:%02d:%02d' % (d, h, m, s)
+        return human_time
+
+    # == BuddyBot Additions ==
+    # User Management, On Join Protection, Spam protection, Dj Mode, Announcments.
+    # Odsum
+
+    def user_register(self, _user):
+
+        global joind_time
+        global joind_count
+        global autoban_time
+        global lockdown
+        global bad_nick
+        global time_join
+
+        buddyusr = self.buddy_db.find_db_user(_user.account)
+
+        if _user.account:
+
+            if _user.is_owner:
+                _user.user_level = 1  # account owner
+                self.console_write(pinylib.COLOR['cyan'], '[User] Room Owner %s:%d:%s' %
+                                   (_user.nick, _user.id, _user.account))
+            elif _user.is_mod:
+                _user.user_level = 3  # mod
+                self.console_write(pinylib.COLOR['cyan'], '[User] Moderator %s:%d:%s' %
+                                   (_user.nick, _user.id, _user.account))
+
+            if buddyusr:
+                _level = buddyusr['level']
+
+                if _level == 4 and not _user.is_mod:
+                    _user.user_level = _level  # chatmod
+
+                if _level == 5 and not _user.is_mod:
+                    _user.user_level = _level  # whitelist
+
+                if _level == 2:  # overwrite mod to chatadmin
+                    _user.user_level = _level
+
+                self.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (
+                    _user.user_level, _user.nick, _user.id, _user.account))
+
+            else:
+                if not _user.user_level:
+                    _user.user_level = 6  # account not verified
+                    self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (
+                        _user.nick, _user.id, _user.account))
+
+            if self.buddy_db.find_db_account_bans(_user.account) and self.is_client_mod:
+                if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
+                    self.send_kick_msg(_user.id)
+                else:
+                    self.send_ban_msg(_user.id)
+                    self.console_write(
+                        pinylib.COLOR['red'], '[Security] Banned: Account %s' % (_user.account))
+            else:
+
+                tc_info = pinylib.apis.tinychat.user_info(_user.account)
+
+                if tc_info is not None:
+                    _user.tinychat_id = tc_info['tinychat_id']
+                    _user.last_login = tc_info['last_active']
+
+        else:
+            _user.user_level = 7  # guest
+            self.console_write(
+                pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
+
+        # Lockdown
+        # odsum
+
+        if lockdown and autoban_time != 0:
+            if time_join - 240 > autoban_time:  # reset after X seconds locakdown
+                if lockdown == 1:
+                    soft = 1
+                    self.do_lockdown(soft)
+                    autoban_time = 0
+                    bad_nick = 0
+                    self.console_write(
+                        pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
+        else:
+
+            maxtime = 15  # Reset check in X seconds
+            maxjoins = 5  # maxjoins in maxtime
+
+            if joind_time == 0:
+                joind_time = time.time()
+                joind_count += 1
+
+            elif time_join - joind_time > maxtime:
+                joind_count = 0
+                joind_time = 0
+                bad_nick = 0
+
+            elif joind_count > maxjoins:
+
+                soft = 0
+                self.do_lockdown(soft)
+                autoban_time = time_join
+                self.console_write(
+                    pinylib.COLOR['red'], '[Security] Lockdown started')
+            else:
+                joind_count += 1
+
+                if not self.isWord(_user.nick):
+                    bad_nick += 1
+
+        if bad_nick > 1:
+            time.sleep(1.2)
+            self.send_ban_msg(_user.id)
+            self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))
+
+        if not pinylib.CONFIG.B_ALLOW_GUESTS:
+            if _user.user_level == 7:
+                self.send_ban_msg(_user.id)
+                self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % (_user.nick))
+
+        self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
+            _user.nick, _user.id, joind_count))
+
+        threading.Thread(target=self.welcome, args=(_user.id,)).start()
+
+    def _removeNonAscii(self, s):
+        return "".join(i for i in s if ord(i) < 128)
+
+    def check_msg(self, msg):
+
+        # Spam 2.2 Protection ting
+        # odsum(lucy) //shit hasn't been the same as it was before...
+        # 02.14.18
+
+        ban = False
+        spammer = False
+        kick = False
+
+        msg = self._removeNonAscii(msg)
+        chat_words = msg.split(' ')
+        total = sum(char.isspace() or char == "0" for char in msg)
+        chatr_user = self.active_user.nick
+        chatr_account = self.active_user.account
+        msg_time = int(time.time())
+        totalcopies = 0
+        reason = ''
+        spamlevel = 0
+
+        # each word reviewed and scored
+
+        for word in chat_words:
+
+            if not self.isWord(word):
+                spamlevel += 0.25  # for everyword that isn't english word
+
+            if not self.isWord(chatr_user):
+                spamlevel += 0.25  # wack nick
+
+            if word.isupper():
+                spamlevel += 0.125  # Uppercase word
+
+            lword = word.lower()
+            if self.buddy_db.find_db_word_bans(lword):
+                ban = True
+                spammer = True
+                spamlevel += 2
+                reason = 'Word ban: ' + lword
+                self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
+
+        if total > 100:  # if message is larger than 100 characters
+            spamlevel += 0.5
+
+        knownnick = self.buddy_db.find_db_ticket(chatr_user)
+
+        # known spammer from our database.
+
+        if knownnick:
+            spamlevel += 0.25
+            spammer = True
+
+            if knownnick['account']:
+                spamlevel += 0.5
+
+        for m in msgs:
+
+            if msg == m:
+                totalcopies += 1
+                oldmsg = msgs[msg]
+
+                msgdiff = oldmsg['ts'] - msg_time
+
+                if totalcopies > 0:
+                    spamlevel += 0.25
+
+                if oldmsg['nick'] == chatr_user:
+                    spamlevel += 0.5
+                    spammer = True
+                    kick = True
+
+                if msgdiff < 5:
+                    spamlevel += 0.25
+
+                spamlevel += 0.5
+                reason = 'Spam repeat.'
+
+        mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time}
+
+        if spamlevel >= 2.5:
+            self.buddy_db.add_ticket(chatr_account, spamlevel, chatr_user, reason)
+            self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
+                               (chatr_user, spamlevel))
+
+        msgs.update({'%s' % msg: mpkg})
+
+        self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Nick: %s Score: %s' %
+                           (chatr_user, spamlevel))
+
+        if len(msgs) > 8:  # store last 8 messages
+            msgs.clear()
+
+        if self.active_user.user_level > 5:
+
+            if spamlevel > 3:
+                ban = True
+        if ban:
+            time.sleep(0.7)
+            if self.active_user.user_level == 6:
+                if spammer:
+                    self.buddy_db.add_bad_account(self.active_user.account)
+                    spammer = False
+                    self.send_ban_msg(self.active_user.id)
+
+            elif len(self.active_user.account) is 0:
+                if spammer:
+                    spammer = False
+                    self.send_ban_msg(self.active_user.id)
+        if kick:
+            self.send_kick_msg(self.active_user.id)
 
     def isWord(self, word):
 
@@ -1046,542 +1503,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         consecutiveConsonents -= 1
                         continue
                     return False
-
         return True
-
-
-# Utils Tinychat
-    def on_banlist(self, banlist_info):
-        """
-        Return json from servers 
-        """
-
-        global banlist
-        banlist = banlist_info
-
-    def do_make_mod(self, account):
-        """
-        Make a tinychat account a room moderator.
-
-        :param account: The account to make a moderator.
-        :type account: str
-        """
-        if self.is_client_owner:
-            if len(account) is 0:
-                self.send_chat_msg('Missing account name.')
-            else:
-                tc_user = self.privacy_.make_moderator(account)
-                if tc_user is None:
-                    self.send_chat_msg('The account is invalid.')
-                elif not tc_user:
-                    self.send_chat_msg('%s is already a moderator.' % account)
-                elif tc_user:
-                    self.send_chat_msg(
-                        '%s was made a room moderator.' % account)
-
-    def do_remove_mod(self, account):
-        """
-        Removes a tinychat account from the moderator list.
-
-        :param account: The account to remove from the moderator list.
-        :type account: str
-        """
-        if self.is_client_owner:
-            if len(account) is 0:
-                self.send_chat_msg('Missing account name.')
-            else:
-                tc_user = self.privacy_.remove_moderator(account)
-                if tc_user:
-                    self.send_chat_msg(
-                        '%s is no longer a room moderator.' % account)
-                elif not tc_user:
-                    self.send_chat_msg('%s is not a room moderator.' % account)
-
-    def do_directory(self):
-        """ Toggles if the room should be shown on the directory. """
-        if self.is_client_owner:
-            if self.privacy_.show_on_directory():
-                self.send_chat_msg('Room IS shown on the directory.')
-            else:
-                self.send_chat_msg('Room is NOT shown on the directory.')
-
-    def do_push2talk(self):
-        """ Toggles if the room should be in push2talk mode. """
-        if self.is_client_owner:
-            if self.privacy_.set_push2talk():
-                self.send_chat_msg('Push2Talk is enabled.')
-            else:
-                self.send_chat_msg('Push2Talk is disabled.')
-
-    def do_green_room(self):
-        """ Toggles if the room should be in greenroom mode. """
-        if self.is_client_owner:
-            if self.privacy_.set_greenroom():
-                self.send_chat_msg('Green room is enabled.')
-            else:
-                self.send_chat_msg('Green room is disabled.')
-
-    def do_clear_room_bans(self):
-        """ Clear all room bans. """
-        if self.is_client_owner:
-            if self.privacy_.clear_bans():
-                self.send_chat_msg('All room bans was cleared.')
-
-    def do_kill(self):
-        """ Kills the bot. """
-        self.disconnect()
-
-    def do_reboot(self):
-        """ Reboots the bot. """
-        self.reconnect()
-
-    def do_media_info(self):
-        """ Show information about the currently playing youtube. """
-        if self.is_client_mod and self.playlist.has_active_track:
-            self.send_chat_msg(
-                'Playlist Tracks: ' + str(len(self.playlist.track_list)) + '\n' +
-                'Track Title: ' + self.playlist.track.title + '\n' +
-                'Track Index: ' + str(self.playlist.track_index) + '\n' +
-                'Elapsed Track Time: ' + self.format_time(self.playlist.elapsed) + '\n' +
-                'Remaining Track Time: ' +
-                self.format_time(self.playlist.remaining)
-            )
-
-    def options(self):
-        """ Load/set special options. """
-
-        log.info('options: is_client_owner: %s, is_client_mod: %s' %
-                 (self.is_client_owner, self.is_client_mod))
-
-        if self.is_client_owner:
-            self.get_privacy_settings()
-
-        if self.is_client_mod:
-            self.send_banlist_msg()
-
-    def get_privacy_settings(self):
-        """ Parse the privacy settings page. """
-        log.info('Parsing %s\'s privacy page.' % self.account)
-        self.privacy_ = privacy.Privacy(proxy=None)
-        self.privacy_.parse_privacy_settings()
-
-    def do_guests(self):
-        """ Toggles if guests are allowed to join the room or not. """
-        pinylib.CONFIG.B_ALLOW_GUESTS = not pinylib.CONFIG.B_ALLOW_GUESTS
-        self.send_chat_msg('Allow Guests: %s' % pinylib.CONFIG.B_ALLOW_GUESTS)
-
-    def do_greet(self):
-        """ Toggles if users should be greeted on entry. """
-        pinylib.CONFIG.B_GREET = not pinylib.CONFIG.B_GREET
-        self.send_chat_msg('Greet Users: %s' % pinylib.CONFIG.B_GREET)
-
-    def do_kick_as_ban(self):
-        """ Toggles if kick should be used instead of ban for auto bans . """
-        pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN = not pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN
-        self.send_chat_msg('Use Kick As Auto Ban: %s' %
-                           pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN)
-# Utils
-
-    def timer_event(self):
-        """ This gets called when the timer has reached the time. """
-        if len(self.playlist.track_list) > 0:
-            if self.playlist.is_last_track:
-                if self.is_connected:
-                    self.send_chat_msg('Resetting playlist.')
-                self.playlist.clear()
-            else:
-                track = self.playlist.next_track
-                if track is not None and self.is_connected:
-                    self.send_yut_play(track.id, track.time, track.title)
-                self.timer(track.time)
-
-    def timer(self, event_time):
-        """
-        Track event timer.
-
-        This will cause an event to occur once the time is done.
-
-        :param event_time: The time in seconds for when an event should occur.
-        :type event_time: int | float
-        """
-        self.timer_thread = threading.Timer(event_time, self.timer_event)
-        self.timer_thread.start()
-
-    def cancel_timer(self):
-        """ Cancel the track timer. """
-        if self.timer_thread is not None:
-            if self.timer_thread.is_alive():
-                self.timer_thread.cancel()
-                self.timer_thread = None
-                return True
-            return False
-        return False
-
-    @staticmethod
-
-    def format_time(time_stamp, is_milli=False):
-        """ 
-        Converts a time stamp as seconds or milliseconds to (day(s)) hours minutes seconds.
-
-        :param time_stamp: Seconds or milliseconds to convert.
-        :param is_milli: The time stamp to format is in milliseconds.
-        :return: A string in the format (days) hh:mm:ss
-        :rtype: str
-        """
-        if is_milli:
-            m, s = divmod(time_stamp / 1000, 60)
-        else:
-            m, s = divmod(time_stamp, 60)
-        h, m = divmod(m, 60)
-        d, h = divmod(h, 24)
-
-        if d == 0 and h == 0:
-            human_time = '%02d:%02d' % (m, s)
-        elif d == 0:
-            human_time = '%d:%02d:%02d' % (h, m, s)
-        else:
-            human_time = '%d Day(s) %d:%02d:%02d' % (d, h, m, s)
-        return human_time
-
-# Cmd Handlers
-
-    def message_handler(self, msg):
-        """
-        A basic handler for chat messages.
-
-        Overrides message_handler in pinylib
-        to allow commands.
-
-        :param msg: The chat message.
-        :type msg: str
-        """
-        prefix = pinylib.CONFIG.B_PREFIX
-
-        if msg.startswith(prefix):
-            parts = msg.split(' ')
-            cmd = parts[0].lower().strip()
-            cmd_arg = ' '.join(parts[1:]).strip()
-
-            _user = self.users.search_by_nick(self.active_user.nick)
-
-            if _user.user_level < 4:
-                if cmd == prefix + 'chatmod':
-                    buddydb.add_user(cmd_arg, 4)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Added %s to Chat Mods' % (cmd_arg))
-                elif cmd == prefix + 'rmchatmod':
-                    buddydb.remove_user(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] removed %s from Chat Mods' % (cmd_arg))
-                elif cmd == prefix + 'noguest':
-                    self.do_guests()
-                elif cmd == prefix + 'lockdown':
-                    self.do_lockdown(1)
-                elif cmd == prefix + 'lockup':
-                    self.do_lockdown(0)
-
-            if _user.user_level == 2:
-
-                if cmd == prefix + 'chatadmin':
-                    buddydb.add_user(cmd_arg, 2)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Added %s to Chat Admins' % (cmd_arg))
-                elif cmd == prefix + 'rmchatadmin':
-                    buddydb.remove_user(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Removed %s to Chat Admins' % (cmd_arg))
-
-                if self.is_client_owner:
-
-                    if cmd == prefix + 'p2t':
-                        threading.Thread(target=self.do_push2talk).start()
-                    elif cmd == prefix + 'greet':
-                        self.do_greet()
-                    elif cmd == prefix == 'kb':
-                        self.do_kick_as_ban()
-                    elif cmd == prefix + 'reboot':
-                        self.do_reboot()
-                    elif cmd == prefix + 'dir':
-                        threading.Thread(target=self.do_directory).start()
-                    elif cmd == prefix + 'addmod':
-                        threading.Thread(target=self.do_make_mod,
-                                         args=(cmd_arg,)).start()
-                    elif cmd == prefix + 'removemod':
-                        threading.Thread(
-                            target=self.do_remove_mod, args=(cmd_arg,)).start()
-
-            if _user.user_level < 5:
-
-                if cmd == prefix + 'mod':
-                    self.do_op_user(cmd_arg)
-                elif cmd == prefix + 'demod':
-                    self.do_deop_user(cmd_args)
-                elif cmd == prefix + 'who':
-                    self.do_user_info(cmd_arg)
-                elif cmd == prefix + 'v':
-                    buddydb.add_user(cmd_arg, 5)
-                    self.console_write(pinylib.COLOR['green'], '[Db] %s is verified.' % (cmd_arg))
-                elif cmd == prefix + 'rmv':
-                    buddydb.remove_user(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] %s no longer verified.' % (cmd_arg))
-                elif cmd == prefix + 'clr':
-                    self.do_clear()
-                elif cmd == prefix + 'forgive':
-                    threading.Thread(target=self.do_forgive,
-                                     args=(cmd_arg,)).start()
-                elif cmd == prefix + 'kick':
-                    threading.Thread(target=self.do_kick,
-                                     args=(cmd_arg,)).start()
-                elif cmd == prefix + 'ban':
-                    threading.Thread(target=self.do_ban,
-                                     args=(cmd_arg,)).start()
-              
-                elif cmd == prefix + 'cam':
-                    self.do_cam_approve(cmd_arg)
-                elif cmd == prefix + 'close':
-                    self.do_close_broadcast(cmd_arg)
-                elif cmd == prefix + 'badn':
-                    buddydb.add_user(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Bad Nick %s added.' % (cmd_arg))
-                elif cmd == prefix + 'rmbadn':
-                    buddydb.remove_bad_nick(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Bad nick %s removed.' % (cmd_arg))
-                elif cmd == prefix + 'banw':
-                    buddydb.add_bad_word(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Bad word: %s added.' % (cmd_arg))
-                elif cmd == prefix + 'rmw':
-                    buddydb.remove_bad_word(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Bad word: %s removed.' % (cmd_arg))
-                elif cmd == prefix + 'bada':
-                    buddydb.add_bad_account(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] Added %s to Bad Accounts.' % (cmd_arg))
-                elif cmd == prefix + 'rmbada':
-                    buddydb.remove_bad_account(cmd_arg)
-                    self.console_write(pinylib.COLOR['green'], '[Db] removed %s from Bad Accounts.' % (cmd_arg))
-
-                if cmd == prefix + 'dj':
-                    threading.Thread(target=self.do_dj,
-                                     args=(cmd_arg,)).start()
-                elif cmd == prefix + 'djmode':
-                    self.do_dj_mode()
-
-            if _user.user_level < 6:
-
-                if dj_mode and _user.account not in djs:
-                    isdj = 1
-                elif dj_mode and _user.account in djs:
-                    isdj = 0
-
-                if cmd == prefix + 'skip':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_skip()
-                elif cmd == prefix + 'media':
-                    self.do_media_info()
-                elif cmd == prefix + 'yt':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        threading.Thread(
-                            target=self.do_play_youtube, args=(cmd_arg,)).start()
-                elif cmd == prefix + 'yts':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        threading.Thread(
-                            target=self.do_youtube_search, args=(cmd_arg,)).start()
-                elif cmd == prefix + 'del':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_delete_playlist_item(cmd_arg)
-                elif cmd == prefix + 'replay':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_media_replay()
-                elif cmd == prefix + 'play':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_play_media()
-                elif cmd == prefix + 'pause':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_media_pause()
-                elif cmd == prefix + 'seek':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_seek_media(cmd_arg)
-                elif cmd == prefix + 'stop':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_close_media()
-                elif cmd == prefix + 'reset':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_clear_playlist()
-                elif cmd == prefix + 'next':
-                    if dj_mode and isdj:
-                        self.send_chat_msg('%s, %s is in DJ mode, current djs are: %s' % (
-                            self.active_user.nick, self.room_name, str(djs)))
-                    elif dj_mode and not isdj or not dj_mode:
-                        self.do_next_tune_in_playlist()
-                elif cmd == prefix + 'playlist':
-                    self.do_playlist_info()
-                elif cmd == prefix + 'pyts':
-                    self.do_play_youtube_search(cmd_arg)
-                elif cmd == prefix + 'pls':
-                    threading.Thread(
-                        target=self.do_youtube_playlist_search, args=(cmd_arg,)).start()
-                elif cmd == prefix + 'plp':
-                    threading.Thread(
-                        target=self.do_play_youtube_playlist, args=(cmd_arg,)).start()
-                elif cmd == prefix + 'ssl':
-                    self.do_show_search_list()
-                elif cmd == prefix + 'help':
-                    self.do_help()
-                elif cmd == prefix + 'whatsong':
-                    self.do_now_playing()
-
-                if cmd == prefix + 'status':
-                    self.do_playlist_status()
-                elif cmd == prefix + 'now':
-                    self.do_now_playing()
-                elif cmd == prefix + 'whoplayed':
-                    self.do_who_plays()
-
-            self.console_write(pinylib.COLOR['green'], self.active_user.nick + ': ' + cmd + ' ' + cmd_arg)
-
-        else:
-            self.console_write(
-                pinylib.COLOR['white'], self.active_user.nick + ': ' + msg)
-
-            if self.active_user.user_level > 4:
-                threading.Thread(target=self.check_msg, args=(msg,)).start()
-
-        self.active_user.last_msg = msg
-
-    def private_message_handler(self, private_msg):
-        """
-        Private message handler.
-
-        Overrides private_message_handler in pinylib
-        to enable private commands.
-
-        :param private_msg: The private message.
-        :type private_msg: str
-        """
-        prefix = pinylib.CONFIG.B_PREFIX
-        # Split the message in to parts.
-        pm_parts = private_msg.split(' ')
-        # parts[0] is the command..
-        pm_cmd = pm_parts[0].lower().strip()
-        # The rest is a command argument.
-        pm_arg = ' '.join(pm_parts[1:]).strip()
-
-        if _user.user_level < 4:
-                if cmd == prefix + 'chatmod':
-                    buddydb.add_user(pm_arg, 4)
-                elif pm_cmd == prefix + 'rmchatmod':
-                    buddydb.remove_user(pm_arg)
-                elif pm_cmd == prefix + 'demod':
-                    self.do_deop_user(pm_arg)
-                elif pm_cmd == prefix + 'noguest':
-                    self.do_guests()
-                elif pm_cmd == prefix + 'lockdown':
-                    self.do_lockdown(1)
-                elif pm_cmd == prefix + 'lockup':
-                    self.do_lockdown(0)
-
-        if _user.user_level == 2:
-
-                if pm_cmd == prefix + 'chatadmin':
-                    buddydb.add_user(pm_arg, 2)
-
-                if self.is_client_owner:
-
-                    if pm_cmd == prefix + 'p2t':
-                        threading.Thread(target=self.do_push2talk).start()
-                    elif pm_cmd == prefix + 'greet':
-                        self.do_greet()
-                    elif pm_cmd == prefix == 'kb':
-                        self.do_kick_as_ban()
-                    elif pm_cmd == prefix + 'reboot':
-                        self.do_reboot()
-                    elif pm_cmd == prefix + 'dir':
-                        threading.Thread(target=self.do_directory).start()
-                    elif pm_cmd == prefix + 'addmod':
-                        threading.Thread(target=self.do_make_mod,
-                                         args=(pm_arg,)).start()
-                    elif pm_cmd == prefix + 'removemod':
-                        threading.Thread(
-                            target=self.do_remove_mod, args=(cmd_arg,)).start()
-                    elif pm_cmd == prefix + 'help':
-                        self.do_help()
-            
-        if _user.user_level < 5:
-
-                if pm_cmd == prefix + 'mod':
-                    self.do_op_user(pm_arg)
-                elif pm_cmd == prefix + 'who':
-                    self.do_user_info(pm_arg)
-                elif pm_cmd == prefix + 'v':
-                    self.do_verified(pm_arg)
-                elif pm_cmd == prefix + 'rmv':
-                    self.do_remove_verified(pm_arg)
-                elif pm_cmd == prefix + 'clr':
-                    self.do_clear()
-                elif pm_cmd == prefix + 'forgive':
-                    threading.Thread(target=self.do_forgive,
-                                     args=(pm_arg,)).start()
-                elif pm_cmd == prefix + 'kick':
-                    threading.Thread(target=self.do_kick,
-                                     args=(pm_arg,)).start()
-                elif pm_cmd == prefix + 'ban':
-                    threading.Thread(target=self.do_ban,
-                                     args=(pm_arg,)).start()
-                elif pm_cmd == prefix + 'uinfo':
-                    self.do_user_info(pm_arg)
-                elif pm_cmd == prefix + 'cam':
-                    self.do_cam_approve(pm_arg)
-                elif pm_cmd == prefix + 'close':
-                    self.do_close_broadcast(pm_arg)
-                elif pm_cmd == prefix + 'badn':
-                    buddydb.add_bad_nick(pm_arg)
-                elif pm_cmd == prefix + 'rmbadn':
-                    buddydb.remove_bad_nick(pm_arg)
-                elif pm_cmd == prefix + 'banw':
-                    buddydb.add_bad_word(pm_arg)
-                elif pm_cmd == prefix + 'rmw':
-                    buddydb.remove_bad_word(pm_arg)
-                elif pm_cmd == prefix + 'bada':
-                    buddydb.add_bad_account(pm_arg)
-                elif pm_cmd == prefix + 'rmbada':
-                    buddydb.remove_bad_account(pm_arg)
-
-                elif pm_cmd == prefix + 'dj':
-                    threading.Thread(target=self.do_dj,
-                                     args=(pm_arg,)).start()
-                elif pm_cmd == prefix + 'djmode':
-                    self.do_dj_mode()
-
-        self.console_write(pinylib.COLOR['white'], '[PRIMSG] %s: %s' % (
-            self.active_user.nick, private_msg))
-
-
-# Buddy Additions 
 
     def do_lockdown(self, soft):
 
@@ -1592,7 +1514,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if soft:
                 password = None
             else:
-                password = self.do_create_password()
+                password = pinylib.string_util.create_random_string(5, 8)
 
             if not self.privacy_.set_guest_mode():
                 self.privacy_.set_room_password(password)
@@ -1608,7 +1530,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 lockdown = False
                 self.send_chat_msg(
                     '%s is open to the public again.' % (self.room_name))
-
         else:
             if not pinylib.CONFIG.B_ALLOW_GUESTS:
                 lockdown = False
@@ -1620,23 +1541,31 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.do_guests()
                 self.send_chat_msg('Lockdown - no guests allowed.')
 
+    def do_djmsg(self):
+
+        global djs
+
+        deejays = ",".join(djs)
+        self.send_chat_msg('%s, %s is in DJ mode, current djs: %s' % (self.active_user.nick, self.room_name, deejays))
+
     def do_dj(self, account):
+
         global djs
         _user = self.users.search_by_nick(account)
 
         if _user is None:
             self.send_chat_msg('%s has no account.' % account)
         else:
-
             if _user.account in djs:
                 djs.remove(_user.account)
                 self.send_chat_msg('%s is not longer a dj.' % _user.account)
             else:
                 djs.append(_user.account)
                 self.send_chat_msg(
-                    '%s is now in the DJ crew.' % _user. account)
+                    '%s is now in the DJ crew.' % _user.account)
 
     def do_dj_mode(self):
+
         global dj_mode
         if dj_mode == 0:
             dj_mode = 1
@@ -1646,3 +1575,202 @@ class TinychatBot(pinylib.TinychatRTCClient):
             dj_mode = 0
             self.send_chat_msg(
                 'DJ mode is off, you can add to the youtube playlist now.')
+
+    def do_announcement(self, announcement):
+
+        global tmp_announcement
+        tmp_announcement = announcement
+        self.send_private_msg(self.active_user.id,
+                              'Room annoucement set to: %s' % (announcement))
+
+    def announcement(self):
+
+        global tmp_announcement
+        announcement = pinylib.CONFIG.B_ANNOUNCEMENT
+        if tmp_announcement is not None:
+            announcement = tmp_announcement
+        return announcement
+
+    def do_help(self):
+        """ Posts a link to github readme/wiki or other page about the bot commands. """
+
+        if self.active_user.user_level < 5:
+            time.sleep(1)
+            self.send_private_msg(
+                self.active_user.id,
+                'Mod Cmds: !clr, !kick, !ban, !cam, !close, !bada  <account>, !banw <badword>,!rmw <badword>, !rmbad <account>, !badn <nick>, !rmv, !v')
+        if self.active_user.user_level == 5:
+            time.sleep(4)
+            self.send_private_msg(
+                self.active_user.id,
+                'Media Cmds: !yt, !close, !seek, !reset, !spl, !del, !skip, !yts, !rpl, !pause, !play, !pyst')
+        if self.active_user.user_level < 4:
+            time.sleep(1)
+            self.send_private_msg(
+                self.active_user.id,
+                'Admin Cmds: !lockdown (noguests), !lockup(password enabled), !chatmod, !dechatmode, !noguest')
+
+    def welcome(self, uid):
+
+        greetings = ["hi", "sup", "yo", "hey", "eh", ]
+        prefix = pinylib.CONFIG.B_PREFIX
+
+        time.sleep(5)
+        _user = self.users.search(uid)
+        buddyusr = self.buddy_db.find_db_user(_user.account)
+
+        if buddyusr:
+            _welcome = buddyusr['greeting']
+
+        if _user is not None:
+            if pinylib.CONFIG.B_ALLOW_GUESTS:
+                if pinylib.CONFIG.B_GREET and _user is not None:
+
+                    if not _user.nick.startswith('guest-'):
+
+                        if _user.user_level < 4:
+                            self.send_private_msg(_user.id, 'You are Mod  - %shelp for cmds' % (prefix))
+                            self.send_private_msg(_user.id,
+                                                  '%s' % (self.announcement()))
+                        elif _user.user_level == 5:
+                            self.send_private_msg(_user.id,
+                                                  '%s %s, wb - You have access to the bot here, %shelp for cmds' % (
+                                                      random.choice(greetings), _user.nick, prefix))
+                            self.send_private_msg(_user.id,
+                                                  '%s' % (self.announcement()))
+                        elif _user.user_level == 6:
+                            self.send_chat_msg('%s %s, welcome to %s - %s' % (
+                                random.choice(greetings), _user.nick, self.room_name, self.announcement()))
+                        elif _user.user_level == 7:
+                            self.send_chat_msg('%s %s, welcome to %s' % (
+                                random.choice(greetings), self.room_name, _user.nick))
+
+    # Experimental forgive - Nov 2017 Odsum
+
+    def on_banlist(self, banlist_info):
+        """
+        Return json from servers
+        """
+        global banlist
+        banlist = banlist_info
+
+    def do_forgive(self, nick_name):
+        """
+        Forgive a user based on if their user id (uid) is found in the room's ban list.
+        :param nick_name: str the nick name of the user that was banned.
+        """
+        global banlist
+        forgiven = False
+
+        if self.is_client_mod:
+            if len(nick_name) is 0:
+                self.send_private_msg(self.active_user.id, 'Please state a nick to forgive from the ban list.')
+            else:
+                for item in banlist['items']:
+                    if item['nick'] == nick_name:
+                        self.users.delete_banned_user(item)
+                        self.send_unban_msg(item['id'])
+                        forgiven = True
+                    else:
+                        self.send_private_msg(self.active_user.id, '%s was not found in the banlist' % (nick_name))
+                if forgiven:
+                    self.send_private_msg(self.active_user.id, '%s was forgiven.' % (nick_name))
+
+    # == Tinychat API Command Methods. ==
+
+    def do_account_spy(self, account):
+        """
+        Shows info about a tinychat account.
+        :param account: tinychat account.
+        :type account: str
+        """
+        if self.is_client_mod:
+            if len(account) is 0:
+                self.send_private_msg(self.active_user.id, 'Missing username to search for.')
+            else:
+                tc_usr = pinylib.apis.tinychat.user_info(account)
+                if tc_usr is None:
+                    self.send_private_msg(self.active_user.id, 'Could not find tinychat info for: %s' % (account))
+                else:
+                    self.send_private_msg(self.active_user.id, 'ID: %s, \nLast Login: %s' %
+                                       (tc_usr['tinychat_id'], tc_usr['last_active']))
+
+    # == Other API Command Methods. ==
+
+    def do_search_urban_dictionary(self, search_str):
+        """
+        Shows urbandictionary definition of search string.
+        :param search_str: The search string to look up a definition for.
+        :type search_str: str
+        """
+        if self.is_client_mod:
+            if len(search_str) is 0:
+                self.send_chat_msg('Please specify something to look up.')
+            else:
+                urban = other.urbandictionary_search(search_str)
+                if urban is None:
+                    self.send_chat_msg('Could not find a definition for: %s' % search_str)
+                else:
+                    if len(urban) > 70:
+                        chunks = pinylib.string_util.chunk_string(urban, 70)
+                        for i in range(0, 2):
+                            self.send_chat_msg(chunks[i])
+                    else:
+                        self.send_chat_msg(urban)
+
+    def do_weather_search(self, search_str):
+        """
+        Shows weather info for a given search string.
+        :param search_str: The search string to find weather data for.
+        :type search_str: str
+        """
+        if len(search_str) is 0:
+            self.send_chat_msg('Please specify a city to search for.')
+        else:
+            weather = other.weather_search(search_str)
+            if weather is None:
+                self.send_chat_msg('Could not find weather data for: %s' % search_str)
+            else:
+                self.send_chat_msg(weather)
+
+    def do_whois_ip(self, ip_str):
+        """
+        Shows whois info for a given ip address or domain.
+        :param ip_str: The ip address or domain to find info for.
+        :type ip_str: str
+        """
+        if len(ip_str) is 0:
+            self.send_chat_msg('Please provide an IP address or domain.')
+        else:
+            whois = other.whois(ip_str)
+            if whois is None:
+                self.send_chat_msg('No info found for: %s' % ip_str)
+            else:
+                self.send_chat_msg(whois)
+
+    # == Just For Fun Command Methods. ==
+
+    def do_chuck_noris(self):
+        """ Shows a chuck norris joke/quote. """
+        chuck = other.chuck_norris()
+        if chuck is not None:
+            self.send_chat_msg(chuck)
+
+    def do_8ball(self, question):
+        """
+        Shows magic eight ball answer to a yes/no question.
+        :param question: The yes/no question.
+        :type question: str
+        """
+        if len(question) is 0:
+            self.send_chat_msg('Question.')
+        else:
+            self.send_chat_msg('8Ball %s' % locals_.eight_ball())
+
+    def do_dice(self):
+        """ roll the dice. """
+        self.send_chat_msg('The dice rolled: %s' % locals_.roll_dice())
+
+    def do_flip_coin(self):
+        """ Flip a coin. """
+        self.send_chat_msg('The coin was: %s' % locals_.flip_coin())
