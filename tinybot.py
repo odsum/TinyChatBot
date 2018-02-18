@@ -170,13 +170,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :param user_name: The user name of the user to show the info for.
         :type user_name: str
         """
-
-        buddyusr = self.buddy_db.find_db_user(user_name)
-
-        if buddyusr:
-            _welcome = buddyusr['welcome']
-            _added = buddyusr['ts']
-
+     
         if self.is_client_mod:
             if len(user_name) is 0:
                 self.send_private_msg(self.active_user.id, 'Missing username.')
@@ -447,10 +441,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if dj_mode:
                 canplay = 0
 
-            if _user.account in djs:
-                canplay = 1
-            else:
-                canplay = 0
+                if _user.account in djs:
+                    canplay = 1
+                else:
+                    canplay = 0
 
             if cmd == prefix + 'skip':
                 if not canplay:
@@ -1621,11 +1615,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if _user is not None:
               
-            buddyusr = self.buddy_db.find_db_user(_user.account)
-
-            if buddyusr:
-                _welcome = buddyusr['greeting']
-
             if pinylib.CONFIG.B_ALLOW_GUESTS:
                 if pinylib.CONFIG.B_GREET and _user is not None:
 
