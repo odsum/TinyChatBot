@@ -1241,6 +1241,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if _user.account:
 
             buddyusr = self.buddy_db.find_db_user(_user.account)
+            tc_info = pinylib.apis.tinychat.user_info(_user.account)
+
+            if tc_info is not None:
+                _user.tinychat_id = tc_info['tinychat_id']
+                _user.last_login = tc_info['last_active']
 
             if _user.is_owner:
                 _user.user_level = 1  # account owner
@@ -1250,7 +1255,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 _user.user_level = 3  # mod
                 self.console_write(pinylib.COLOR['cyan'], '[User] Moderator %s:%d:%s' %
                                    (_user.nick, _user.id, _user.account))
-
             if buddyusr:
                 _level = buddyusr['level']
 
@@ -1266,32 +1270,26 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (
                     _user.user_level, _user.nick, _user.id, _user.account))
 
-            else:
-                if not _user.user_level:
-                    _user.user_level = 6  # account not verified
-                    self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (
-                        _user.nick, _user.id, _user.account))
+            _user.user_level = 6  # account not verified
+            self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
             if self.buddy_db.find_db_account_bans(_user.account) and self.is_client_mod:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                     self.send_kick_msg(_user.id)
                 else:
                     self.send_ban_msg(_user.id)
-                    self.console_write(
-                        pinylib.COLOR['red'], '[Security] Banned: Account %s' % (_user.account))
-            else:
-
-                tc_info = pinylib.apis.tinychat.user_info(_user.account)
-
-                if tc_info is not None:
-                    _user.tinychat_id = tc_info['tinychat_id']
-                    _user.last_login = tc_info['last_active']
-
+                    self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % (_user.account))
+                return
         else:
+               
             _user.user_level = 7  # guest
-            self.console_write(
-                pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
+            self.console_write(pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
 
+            if not pinylib.CONFIG.B_ALLOW_GUESTS:
+                if _user.user_level == 7:
+                    self.send_ban_msg(_user.id)
+                    self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % (_user.nick))
+                    return
         # Lockdown
         # odsum
 
@@ -1335,11 +1333,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
             time.sleep(1.2)
             self.send_ban_msg(_user.id)
             self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))
-
-        if not pinylib.CONFIG.B_ALLOW_GUESTS:
-            if _user.user_level == 7:
-                self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % (_user.nick))
 
         self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
             _user.nick, _user.id, joind_count))
