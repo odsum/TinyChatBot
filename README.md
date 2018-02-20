@@ -4,7 +4,12 @@
 Based off Nortxort's Tinychat Bot and Pinylib.
 
 ## Updates
- 
+2.2.4
+- Clean up tinyboy.py, finally using pyCharm
+- Resorted Pinylib.py and user.py back to default
+- Fixed pickble.py dexists issue with Nortxort's suggestion
+- Added in the concept and idea for multiple bots to bot.py
+
 2.2.2
 - Announcements:  Update your config.py to include B_ANNOUNCEMENT, to set temporary announcements use !announcement <msg>
 - Moved all cmds to handled at one place, bot responses mostly in private messages now
@@ -55,7 +60,7 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 - Custom greeting messages per accounts
 - Vote Ban System
 - Clean up forgive, maybe bring in one from Nortxort's TinychatBot
-
+- Mutliple bots in various rooms
 
 ## Commands
 
