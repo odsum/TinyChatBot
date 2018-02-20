@@ -45,7 +45,7 @@ class Privacy:
         :return: True if bans were cleared, else False.
         :rtype: bool
         """
-        url = 'https://tinychat.com/gifts/settings/privacy/clearbans'
+        url = 'https://tinychat.com/settings/privacy/clearbans'
         header = {
             'X-Requested-With': 'XMLHttpRequest',
             'Referer': self._privacy_url
@@ -124,15 +124,15 @@ class Privacy:
                     self._broadcast_pass_enabled = 0
             # moderators
             # There has to be a more elegant way of doing this..
-            #pattern = 'var moderators = \''
-            #if pattern in response['content']:
-                #mod_str = str(response['content']).split(pattern)[2].split('\'')[0].replace('"', '\'')
-            #    mod_str_replaced = mod_str.replace('[', '').replace(']', '').replace('\'', '')
-            #    mods = mod_str_replaced.split(',')
-            #    if len(mods) > 0:
-            #        for mod in mods:
-            #            if mod != '' and mod not in self.room_moderators:
-            #                self.room_moderators.append(mod)
+            pattern = 'var moderators = \''
+            if pattern in response['content']:
+                mod_str = str(response['content']).split(pattern)[1].split('\';')[0].replace('"', '\'')
+                mod_str_replaced = mod_str.replace('[', '').replace(']', '').replace('\'', '')
+                mods = mod_str_replaced.split(',')
+                if len(mods) > 0:
+                    for mod in mods:
+                        if mod != '' and mod not in self.room_moderators:
+                            self.room_moderators.append(mod)
 
     def set_room_password(self, password=None):
         """ Set a room password or clear the password.
@@ -189,12 +189,13 @@ class Privacy:
         or None on invalid account name.
         :rtype: bool | None
         """
-        url = 'https://tinychat.com/gifts/settings/privacy/addmoderator'
+        url = 'https://tinychat.com/settings/privacy/addfeatureduser'
         if self._is_tc_account(account):
             if account not in self.room_moderators:
                 form_data = {
                     '_token': self._csrf_token,
-                    'name': account
+                    'name': account,
+                    'type': 'moderator'
                 }
                 response = util.web.http_post(post_url=url, post_data=form_data, json=True, proxy=self._proxy)
                 if response['json']['error'] is False and response['json']['response'] == 'Data added':
@@ -212,19 +213,19 @@ class Privacy:
         :return: True if removed else False
         :rtype: bool
         """
-  	url = 'https://tinychat.com/settings/privacy/removefeatureduser'
-        form_data = {
-            '_token': self._csrf_token,
-            'name': account,
-	    'type': "moderator"
+        url = 'https://tinychat.com/settings/privacy/removefeatureduser'
+        if account in self.room_moderators:
+            form_data = {
+                '_token': self._csrf_token,
+                'name': account,
+                'type': 'moderator'
             }
-        response = util.web.http_post(post_url=url, post_data=form_data, json=True, proxy=self._proxy)
-         
-	if response['json']['error'] is False and response['json']['response'] == 'Data removed':
-                #self.room_moderators.remove(account)
+            response = util.web.http_post(post_url=url, post_data=form_data, json=True, proxy=self._proxy)
+            if response['json']['error'] is False and response['json']['response'] == 'Data removed':
+                self.room_moderators.remove(account)
                 return True
-	else:
-        	return False
+            return False
+        return False
 
     def set_guest_mode(self):
         """ Enable/disable guest mode.

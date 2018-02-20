@@ -5,7 +5,6 @@ import json
 import time
 import logging
 import traceback
-import sys
 
 import websocket
 from colorama import init, Fore, Style
@@ -15,11 +14,6 @@ import user
 import apis.tinychat
 from page import acc
 from util import file_handler, string_util
-
-import util.web
-
-reload(sys)
-sys.setdefaultencoding('utf8')
 
 __version__ = '1.0.9-buddy'
 
@@ -46,7 +40,6 @@ COLOR = {
 def write_to_log(msg, room_name):
     """ 
     Writes chat events to log.
-
     :param msg: the message to write to the log.
     :type msg: str
     :param room_name: the room name.
@@ -79,11 +72,10 @@ class TinychatRTCClient(object):
     def console_write(self, color, message):
         """ 
         Writes message to console.
-
         :param color: the colorama color representation.
         :param message: str the message to write.
         """
-	msg_encoded = message.encode('utf-8', 'replace')
+        msg_encoded = message.encode('utf-8', 'replace')
         if config.USE_24HOUR:
             ts = time.strftime('%H:%M:%S')
         else:
@@ -91,8 +83,8 @@ class TinychatRTCClient(object):
         if config.CONSOLE_COLORS:
             msg = COLOR['white'] + '[' + ts + '] ' + Style.RESET_ALL + color + message
         else:
-            #msg = '[' + ts + '] ' + message
-            msg = '[' + ts + '][' + self.room_name +'] ' + msg_encoded
+            # msg = '[' + ts + '] ' + message
+            msg = '[' + ts + '][' + self.room_name + '] ' + msg_encoded
         try:
             print(msg)
         except UnicodeEncodeError as ue:
@@ -103,11 +95,9 @@ class TinychatRTCClient(object):
         if config.CHAT_LOGGING:
             write_to_log('[' + ts + '] ' + message, self.room_name)
 
-
     def login(self):
         """ 
         Login to tinychat.
-
         :return: True if logged in, else False.
         :rtype: bool
         """
@@ -138,7 +128,7 @@ class TinychatRTCClient(object):
             header=tc_header,
             origin='https://tinychat.com'
         )
- 	try:
+        try:
             if self._ws.connected:
                 log.info('connecting to: %s' % self.room_name)
                 if self.send_join_msg():
@@ -150,28 +140,11 @@ class TinychatRTCClient(object):
             time.sleep(3)
             self.reconnect()
 
-    def __callback(self):
-        """ The main loop reading event messages from the server. """
-        log.info('starting callback, is_connected: %s' % self.is_connected)
-        fails = 0
-
-        while self.is_connected:
-            try:
-                data = self._ws.next()
-            except Exception as e:
-                log.error('data read error %s: %s' % (fails, e), exc_info=True)
-                fails += 1
-                if fails == 2:
-                    if CONFIG.DEBUG_MODE:
-                        traceback.print_exc()
-                    self.connect()
-                    break
-
     def disconnect(self):
         """ Disconnect from the server. """
         self.is_connected = False
-        #self._ws.send_close(status=1001, reason='GoingAway')
-        #self._ws.abort()  # not sure if this is actually needed.
+        # self._ws.send_close(status=1001, reason='GoingAway')
+        # self._ws.abort()  # not sure if this is actually needed.
         self._req = 1
         self._ws = None
         self.client_id = 0
@@ -269,7 +242,7 @@ class TinychatRTCClient(object):
 
                     elif event == 'pending_moderation':
                         self.on_pending_moderation(json_data)
-                        
+
                     elif event == 'stream_moder_allow':
                         self.on_stream_moder_allow(json_data)
 
@@ -302,7 +275,7 @@ class TinychatRTCClient(object):
     def on_closed(self, code):
         """
         This gets sent when ever the connection gets closed by the server for what ever reason.
-        
+
         :param code: The close code as integer.
         :type code: int
         """
@@ -324,7 +297,7 @@ class TinychatRTCClient(object):
     def on_joined(self, client_info):
         """
         Received when the client have joined the room successfully.
-        
+
         :param client_info: This contains info about the client, such as user role and so on.
         :type client_info: dict
         """
@@ -343,7 +316,7 @@ class TinychatRTCClient(object):
     def on_room_info(self, room_info):
         """
         Received when the client have joined the room successfully.
-        
+
         :param room_info: This contains information about the room such as about, profile image and so on.
         :type room_info: dict
         """
@@ -355,10 +328,8 @@ class TinychatRTCClient(object):
     def on_room_settings(self, room_settings):
         """
         Received when a change has been made to the room settings(privacy page).
-
         Not really sure what role this plays, but it happens when 
         a change has been made to the privacy page.
-
         :param room_settings: The room room settings.
         :type room_settings: dict
         """
@@ -370,9 +341,9 @@ class TinychatRTCClient(object):
     def on_userlist(self, user_info):
         """
         Received upon joining a room. 
-        
+
         This contains all the users present in the room when joining.
-        
+
         :param user_info: A users information such as role.
         :type user_info: dict
         """
@@ -395,7 +366,7 @@ class TinychatRTCClient(object):
     def on_join(self, join_info):
         """
         Received when a user joins the room.
-        
+
         :param join_info: This contains user information such as role, account and so on.
         :type join_info: dict
         """
@@ -425,7 +396,7 @@ class TinychatRTCClient(object):
     def on_nick(self, uid, nick):
         """
         Received when a user changes nick name.
-        
+
         :param uid: The ID (handle) of the user.
         :type uid: int
         :param nick: The new nick name.
@@ -439,7 +410,7 @@ class TinychatRTCClient(object):
     def on_quit(self, uid):
         """
         Received when a user leaves the room.
-        
+
         :param uid: The ID (handle) of the user leaving.
         :type uid: int
         """
@@ -450,7 +421,7 @@ class TinychatRTCClient(object):
     def on_ban(self, ban_info):
         """
         Received when the client bans someone.
-        
+
         :param ban_info: The ban information such as, if the ban was a success or not.
         :type ban_info: dict
         """
@@ -461,35 +432,34 @@ class TinychatRTCClient(object):
                                    (banned_user.nick, banned_user.account))
             else:
                 self.console_write(COLOR['bright_red'], '[Security] %s was banned from the room.' % banned_user.nick)
-  
+
     def on_captcha(self, captcha):
 
-	if captcha['key']:
-	        recaptcha = captcha['key']
-      		print "tinychat.com/cauth/recaptcha?token=" + recaptcha
-        	payload = {
-            	'tc': 'captcha',
-            	'req': self._req,
-		'token': '03AO6mBfwawYzZZCHMJbU1jLeMhxKeoRuFB9howwUSGQk2BSoEliMsjRHHZ9_suwGzrPHpNI9zHvoZata6sVSEhfaWgSfBPkD-8E2l54EEBmoFPzMJdGq-rBg4gRd1jNw1ZRudZuK3paaG7Qv-bJ8vdBI9qb4NSAUa9lMlnXj4IeDylyuzR6N9nIPvKSZrVdUoqCbp9jwmEpA9rDNGLSVbLFOXWbLa9uX6B8nlD2onYLVsRR0uFdbYlXNn7AYUwiGVynQWY4QVI5g2V0BDfuoNa0LFQrUYoSWc4Q0N_hJYYdKYiGtL7bmNHvBEwMBo16VQzwHam-6Gqnn6QUHovTFAyKdTeFe96c9RYw'
-        	}
-        	self.send(payload)
-		#print(captcha['key'])
-        	#driver = webdriver.Firefox()
-       		#_url = 'https://tinychat.com/{0}'.format(self.room_name)
-        	#driver.get(_url)
+        if captcha['key']:
+            recaptcha = captcha['key']
+            print "tinychat.com/cauth/recaptcha?token=" + recaptcha
+            payload = {
+                'tc': 'captcha',
+                'req': self._req,
+                'token': '03AO6mBfwawYzZZCHMJbU1jLeMhxKeoRuFB9howwUSGQk2BSoEliMsjRHHZ9_suwGzrPHpNI9zHvoZata6sVSEhfaWgSfBPkD-8E2l54EEBmoFPzMJdGq-rBg4gRd1jNw1ZRudZuK3paaG7Qv-bJ8vdBI9qb4NSAUa9lMlnXj4IeDylyuzR6N9nIPvKSZrVdUoqCbp9jwmEpA9rDNGLSVbLFOXWbLa9uX6B8nlD2onYLVsRR0uFdbYlXNn7AYUwiGVynQWY4QVI5g2V0BDfuoNa0LFQrUYoSWc4Q0N_hJYYdKYiGtL7bmNHvBEwMBo16VQzwHam-6Gqnn6QUHovTFAyKdTeFe96c9RYw'
+            }
+            self.send(payload)
+        # print(captcha['key'])
+        # driver = webdriver.Firefox()
+        # _url = 'https://tinychat.com/{0}'.format(self.room_name)
+        # driver.get(_url)
 
-        	# execute the javascript.
-       		#driver.execute_script('ShowRecaptcha("' + token + '")')
-        	#raw_input('\nIf the captcha comes up in the browser, solve it, else click enter.')
+        # execute the javascript.
+        # driver.execute_script('ShowRecaptcha("' + token + '")')
+        # raw_input('\nIf the captcha comes up in the browser, solve it, else click enter.')
 
-        	# close the browser window.
-        	#driver.close()
-
+        # close the browser window.
+        # driver.close()
 
     def on_unban(self, unban_info):
         """
         Received when the client un-bans a user.
-        
+
         :param unban_info: The un-ban information such as ID (handle) and if un-banned successfully.
         :type unban_info: dict
         """
@@ -500,7 +470,6 @@ class TinychatRTCClient(object):
     def on_banlist(self, banlist_info):
         """
         Received when a request for the ban list has been made.
-
         :param banlist_info: The ban list information such as whether it was a success or not.
         :type banlist_info: dict
         """
@@ -516,7 +485,7 @@ class TinychatRTCClient(object):
     def on_msg(self, uid, msg):
         """
         Received when a message is sent to the room.
-        
+
         :param uid: The message sender's ID (handle).
         :type uid: int
         :param msg: The chat message.
@@ -535,7 +504,7 @@ class TinychatRTCClient(object):
     def message_handler(self, msg):
         """
         A basic handler for chat messages.
-        
+
         :param msg: The chat message.
         :type msg: str
         """
@@ -544,7 +513,7 @@ class TinychatRTCClient(object):
     def on_pvtmsg(self, uid, msg):
         """
         Received when a user sends the client a private message.
-        
+
         :param uid: The ID (handle) of the private message sender.
         :type uid: int
         :param msg: The private message.
@@ -563,7 +532,7 @@ class TinychatRTCClient(object):
     def private_message_handler(self, private_msg):
         """
         A basic handler for private messages.
-        
+
         :param private_msg: The private message.
         :type private_msg: str
         """
@@ -572,7 +541,7 @@ class TinychatRTCClient(object):
     def on_publish(self, uid):
         """
         Received when a user starts broadcasting.
-        
+
         :param uid: The ID (handle) of the user broadcasting.
         :type uid: int
         """
@@ -585,7 +554,7 @@ class TinychatRTCClient(object):
     def on_unpublish(self, uid):
         """
         Received when a user stops broadcasting.
-        
+
         :param uid: The ID (handle) of the user who stops broadcasting.
         :type uid: int
         """
@@ -597,9 +566,9 @@ class TinychatRTCClient(object):
     def on_sysmsg(self, msg):
         """
         System messages sent from the server to all clients (users).
-        
+
         These messages are notifications about special events, such as ban, kick and possibly others.
-        
+
         :param msg: The special notifications message.
         :type msg: str
         """
@@ -629,35 +598,35 @@ class TinychatRTCClient(object):
     def on_stream_moder_allow(self, moder_data):
         """
         Received when a user has been allowed by the client, to broadcast in a green room.
-
         :param moder_data: Contains information about the allow request.
         :type moder_data: dict
         """
         _user = self.users.search(moder_data['handle'])
         if _user is not None and config.DEBUG_MODE:
-            self.console_write(COLOR['bright_yellow'], '[User] %s:%s was allowed to broadcast.' % (_user.nick, _user.id))
+            self.console_write(COLOR['bright_yellow'],
+                               '[User] %s:%s was allowed to broadcast.' % (_user.nick, _user.id))
 
     def on_stream_moder_close(self, moder_data):
         """
         Received when a user has their broadcast closed by the client.
-
         :param moder_data: Contains information about the close request.
         :type moder_data: dict
         """
         if moder_data['success']:
             _user = self.users.search(moder_data['handle'])
             if _user is not None and config.DEBUG_MODE:
-                self.console_write(COLOR['bright_yellow'], '[User] %s:%s\'s broadcast was closed.' % (_user.nick, _user.id))
+                self.console_write(COLOR['bright_yellow'],
+                                   '[User] %s:%s\'s broadcast was closed.' % (_user.nick, _user.id))
         else:
             log.error('failed to close a broadcast: %s' % moder_data['reason'])
 
     def on_yut_playlist(self, playlist_data):  # TODO: Needs more work.
         """
         Received when a request for the playlist has been made.
-        
+
         The playlist is as, one would see if being a moderator
         and using a web browser.
-        
+
         :param playlist_data: The data of the items in the playlist.
         :type playlist_data: dict
         """
@@ -669,10 +638,8 @@ class TinychatRTCClient(object):
     def on_yut_play(self, yt_data):
         """
         Received when a youtube gets started or time searched.
-
         This also gets received when the client starts a youtube, the information is 
         however ignored in that case.
-
         :param yt_data: The event information contains info such as the ID (handle) of the user 
         starting/searching the youtube, the youtube ID, youtube time and so on.
         :type yt_data: dict
@@ -695,10 +662,8 @@ class TinychatRTCClient(object):
     def on_yut_pause(self, yt_data):
         """
         Received when a youtube gets paused or searched while paused.
-
         This also gets received when the client pauses or searches while paused, the information is 
         however ignored in that case.
-
         :param yt_data: The event information contains info such as the ID (handle) of the user 
         pausing/searching the youtube, the youtube ID, youtube time and so on.
         :type yt_data: dict
@@ -715,7 +680,7 @@ class TinychatRTCClient(object):
     def on_yut_stop(self, yt_data):
         """
         Received when a youtube stops, e.g when its done playing.
-        
+
         :param yt_data: The event information contains the ID of the video, the time and so on.
         :type yt_data: dict
         """
@@ -725,9 +690,9 @@ class TinychatRTCClient(object):
     def send_join_msg(self):
         """
         The initial connect message to the room.
-        
+
         The client sends this after the websocket handshake has been established.
-        
+
         :return: Returns True if the connect message has been sent, else False.
         :rtype: bool
         """
@@ -777,7 +742,7 @@ class TinychatRTCClient(object):
     def send_chat_msg(self, msg):
         """
         Send a chat message to the room.
-        
+
         :param msg: The message to send.
         :type msg: str
         """
@@ -791,7 +756,7 @@ class TinychatRTCClient(object):
     def send_private_msg(self, uid, msg):
         """
         Send a private message to a user.
-        
+
         :param uid: The Id (handle) of the user to send the message to.
         :type uid: int
         :param msg: The private message to send.
@@ -808,7 +773,7 @@ class TinychatRTCClient(object):
     def send_kick_msg(self, uid):
         """
         Send a kick message to kick a user out of the room.
-        
+
         :param uid: The ID (handle) of the user to kick.
         :type uid: int
         """
@@ -822,7 +787,7 @@ class TinychatRTCClient(object):
     def send_ban_msg(self, uid):
         """
         Send a ban message to ban a user from the room.
-        
+
         :param uid: The ID (handle) of the user to ban.
         :type uid: int
         """
@@ -836,7 +801,7 @@ class TinychatRTCClient(object):
     def send_unban_msg(self, ban_id):
         """
         Send a un-ban message to un-ban a banned user.
-        
+
         :param ban_id: The ban ID of the user to un-ban.
         :type ban_id: int
         """
@@ -858,7 +823,6 @@ class TinychatRTCClient(object):
     def send_room_password_msg(self, password):
         """
         Send a room password message.
-
         :param password: The room password.
         :type password: str
         """
@@ -872,7 +836,6 @@ class TinychatRTCClient(object):
     def send_cam_approve_msg(self, uid):
         """
         Allow a user to broadcast in green room enabled room.
-
         :param uid: The ID of the user.
         :type uid: int
         """
@@ -886,7 +849,6 @@ class TinychatRTCClient(object):
     def send_close_user_msg(self, uid):
         """
         Close a users broadcast.
-
         :param uid: The ID of the user.
         :type uid: int
         """
@@ -909,9 +871,9 @@ class TinychatRTCClient(object):
     def send_yut_playlist_add(self, video_id, duration, title, image):
         """
         Add a youtube to the web browser playlist.
-        
+
         I haven't explored this yet.
-        
+
         :param video_id: the ID of the youtube video.
         :type video_id: str
         :param duration: The duration of the youtube video (in seconds).
@@ -936,9 +898,9 @@ class TinychatRTCClient(object):
     def send_yut_playlist_remove(self, video_id, duration, title, image):
         """
         Remove a playlist item from the web browser based playlist.
-        
+
         I haven't explored this yet.
-        
+
         :param video_id: The ID of the youtube video to remove.
         :type video_id: str
         :param duration: The duration of the youtube video to remove.
@@ -963,9 +925,9 @@ class TinychatRTCClient(object):
     def send_yut_playlist_mode(self, random_=False, repeat=False):
         """
         Set the mode of the web browser based playlist.
-        
+
         I haven't explored this yet.
-        
+
         :param random_: Setting this to True will make videos play at random i assume.
         :type random_: bool
         :param repeat: Setting this to True will make the playlist repeat itself i assume.
@@ -984,7 +946,6 @@ class TinychatRTCClient(object):
     def send_yut_play(self, video_id, duration, title, offset=0):
         """
         Start or search a youtube video.
-
         :param video_id: The ID of the youtube video to start or search.
         :type video_id: str
         :param duration: The duration of the video in seconds.
@@ -1015,7 +976,7 @@ class TinychatRTCClient(object):
     def send_yut_pause(self, video_id, duration, offset=0):
         """
         Pause, or search while a youtube video is paused .
-        
+
         :param video_id: The ID of the youtube video to pause or search.
         :type video_id: str
         :param duration: The duration of the video in seconds.
@@ -1037,10 +998,10 @@ class TinychatRTCClient(object):
     def send_yut_stop(self, video_id, duration, offset=0):
         """
         Stop a youtube video that is currently playing.
-        
+
         As far as i see, this is not yet officially supported by tinychat.
         There simply is no button to stop a youtube with in the browser based client. (as of version 2.0.10-296)
-        
+
         :param video_id: The ID of the youtube to stop.
         :type video_id: str
         :param duration: The duration of the youtube video in seconds.
@@ -1075,7 +1036,7 @@ class TinychatRTCClient(object):
     def send(self, payload):
         """
         Message sender wrapper used by all methods that sends.
-        
+
         :param payload: The object to send. This should be an object that can be serialized to json.
         :type payload: dict | object
         """
@@ -1088,7 +1049,6 @@ class TinychatRTCClient(object):
     def get_runtime(self, as_milli=False):
         """ 
         Get the time the connection has been alive.
-
         :param as_milli: True return the time as milliseconds, False return seconds.
         :type as_milli: bool
         :return: Seconds or milliseconds.

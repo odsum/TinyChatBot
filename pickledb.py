@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# Modified by odsum for BuddyBot
-
 # Copyright (c) 2015, Harrison Erd
 # All rights reserved.
 #
@@ -182,13 +180,10 @@ class pickledb(object):
 
     def dexists(self, name, key):
         '''Determine if a key exists or not'''
-        try:
-            if self.db[name][key] is not None:
-                return 1
-            else:
-	    	return 0
-	except KeyError:
-                return 0
+        if key in self.db[name]:  # Fixed by Nort
+            return 1
+        else:
+            return 0
 
     def deldb(self):
         '''Delete everything from the database'''

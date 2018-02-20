@@ -5,16 +5,16 @@ Based off Tinybot by Nortxort (https://github.com/nortxort/tinybot-rtc)
 """
 
 import logging
+import random
 import threading
 import time
-import random
 
 import pinylib
 from apis import youtube, other, locals_
 from page import privacy
 from util import tracklist, botdb
 
-__version__ = '2.2.2'
+__version__ = '2.2.4'
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ djs = []
 msgs = {}
 tmp_announcement = None
 
+
 class TinychatBot(pinylib.TinychatRTCClient):
     privacy_ = None
     timer_thread = None
@@ -46,8 +47,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
         return pinylib.CONFIG.CONFIG_PATH + pinylib.CONFIG.ROOM + '/'
 
     def db_setup(self):
-        self.buddy_db = botdb.DataBase('users', self.config_path)
 
+        self.buddy_db = botdb.DataBase('users', self.config_path)
         if not self.buddy_db.has_db_file():
             self.buddy_db.create_db_path()
             self.buddy_db.create_defaults()
@@ -95,7 +96,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_kick_msg(_user.id)
             else:
                 self.send_ban_msg(_user.id)
-                self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % (_user.nick))
+                self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % _user.nick)
 
         threading.Thread(target=self.user_register, args=(_user,)).start()
 
@@ -136,7 +137,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 _user = self.users.search_by_nick(user_name)
                 if _user is not None:
                     _user.user_level = 4
-                    self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+                    self.send_private_msg(self.active_user.id, 'No user named: %s' % user_name)
 
     def do_deop_user(self, user_name):
         """ 
@@ -154,10 +155,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if _user is not None:
 
                     if _user.account is not None:
-                        _user.user_level == 6
+                        _user.user_level = 6
                     else:
-                        _user.user_level == 7
-                        self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+                        _user.user_level = 7
+                        self.send_private_msg(self.active_user.id, 'No user named: %s' % user_name)
 
     def do_clear(self):
         """ Clears the chat box. """
@@ -170,14 +171,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :param user_name: The user name of the user to show the info for.
         :type user_name: str
         """
-     
+
         if self.is_client_mod:
             if len(user_name) is 0:
                 self.send_private_msg(self.active_user.id, 'Missing username.')
             else:
                 _user = self.users.search_by_nick(user_name)
                 if _user is None:
-                    self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+                    self.send_private_msg(self.active_user.id, 'No user named: %s' % user_name)
                 else:
                     if _user.account and _user.tinychat_id is None:
                         user_info = pinylib.apis.tinychat.user_info(_user.account)
@@ -224,7 +225,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
-                        self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+                        self.send_private_msg(self.active_user.id, 'No user named: %s' % user_name)
                     elif _user.user_level < self.active_user.user_level:
                         self.send_chat_msg(
                             'imma let ya guys figure that out...')
@@ -255,7 +256,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
-                        self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+                        self.send_private_msg(self.active_user.id, 'No user named: %s' % user_name)
                     elif _user.user_level < self.active_user.user_level:
                         self.send_chat_msg(
                             'i dont wanna be a part of ya problems..')
@@ -277,7 +278,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_cam_approve_msg(_user.id)
                 _user.is_broadcasting = True
         else:
-            self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+            self.send_private_msg(self.active_user.id, 'No user named: %s' % user_name)
 
     def do_close_broadcast(self, user_name):
         """
@@ -294,7 +295,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if _user is not None and _user.is_broadcasting:
                     self.send_close_user_msg(_user.id)
                 else:
-                    self.send_private_msg(self.active_user.id, 'No user named: %s' % (user_name))
+                    self.send_private_msg(self.active_user.id, 'No user named: %s' % user_name)
 
     def on_pending_moderation(self, pending):
         _user = self.users.search(pending['handle'])
@@ -303,7 +304,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_cam_approve_msg(_user.id)
             else:
                 _user.is_waiting = True
-                self.send_chat_msg('%s is waiting in the greenroom.' % (_user.nick))
+                self.send_chat_msg('%s is waiting in the greenroom.' % _user.nick)
 
     # == Bot Cmd Handler ==
 
@@ -314,8 +315,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         parts = msg.split(' ')
         cmd = parts[0].lower().strip()
         cmd_arg = ' '.join(parts[1:]).strip()
-        cmd_extra = ' '.join(parts[2:]).strip()
-        cmd_extend = ' '.join(parts[3:]).strip()
 
         _user = self.users.search_by_nick(self.active_user.nick)
 
@@ -325,11 +324,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if cmd == prefix + 'chatmod':
                 self.buddy_db.add_user(cmd_arg, 4)
-                self.send_private_msg(_user.id, '%s was added to Chat Mods.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was added to Chat Mods.' % cmd_arg)
 
             elif cmd == prefix + 'rmchatmod':
                 self.buddy_db.remove_user(cmd_arg)
-                self.send_private_msg(_user.id, '%s was removed from Chat Mods.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was removed from Chat Mods.' % cmd_arg)
 
             elif cmd == prefix + 'noguest':
                 self.do_guests()
@@ -350,11 +349,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if cmd == prefix + 'chatadmin':
                 self.buddy_db.add_user(cmd_arg, 2)
-                self.send_private_msg(_user.id, '%s was removed from Chat Admins.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was removed from Chat Admins.' % cmd_arg)
 
             elif cmd == prefix + 'rmchatadmin':
                 self.buddy_db.remove_user(cmd_arg)
-                self.send_private_msg(_user.id, '%s was removed from Chat Admins.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was removed from Chat Admins.' % cmd_arg)
 
             if self.is_client_owner:
 
@@ -380,16 +379,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if cmd == prefix + 'mod':
                 self.do_op_user(cmd_arg)
             elif cmd == prefix + 'demod':
-                self.do_deop_user(cmd_args)
+                self.do_deop_user(cmd_arg)
 
             elif cmd == prefix + 'who':
                 self.do_user_info(cmd_arg)
             elif cmd == prefix + 'v':
                 self.buddy_db.add_user(cmd_arg, 5)
-                self.send_private_msg(_user.id, '%s was added to verified accounts.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was added to verified accounts.' % cmd_arg)
             elif cmd == prefix + 'rmv':
                 self.buddy_db.remove_user(cmd_arg)
-                self.send_private_msg(_user.id, '%s was removed from verified accounts.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was removed from verified accounts.' % cmd_arg)
             elif cmd == prefix + 'clr':
                 self.do_clear()
             elif cmd == prefix + 'forgive':
@@ -407,23 +406,23 @@ class TinychatBot(pinylib.TinychatRTCClient):
             elif cmd == prefix + 'close':
                 self.do_close_broadcast(cmd_arg)
             elif cmd == prefix + 'badn':
-                self.buddy_db.add_user(cmd_arg)
-                self.send_private_msg(_user.id, '%s was added to bad nicks' % (cmd_arg))
+                self.buddy_db.add_bad_nick(cmd_arg)
+                self.send_private_msg(_user.id, '%s was added to bad nicks' % cmd_arg)
             elif cmd == prefix + 'rmbadn':
                 self.buddy_db.remove_bad_nick(cmd_arg)
-                self.send_private_msg(_user.id, '%s was removed from bad nicks.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was removed from bad nicks.' % cmd_arg)
             elif cmd == prefix + 'banw':
                 self.buddy_db.add_bad_word(cmd_arg)
-                self.send_private_msg(_user.id, '%s was added to banned words.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was added to banned words.' % cmd_arg)
             elif cmd == prefix + 'rmw':
                 self.buddy_db.remove_bad_word(cmd_arg)
-                self.send_private_msg(_user.id, '%s was removed from banned words.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was removed from banned words.' % cmd_arg)
             elif cmd == prefix + 'bada':
                 self.buddy_db.add_bad_account(cmd_arg)
-                self.send_private_msg(_user.id, '%s was added to banned accounts.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was added to banned accounts.' % cmd_arg)
             elif cmd == prefix + 'rmbada':
                 self.buddy_db.remove_bad_account(cmd_arg)
-                self.send_private_msg(_user.id, '%s was removed from banned accounts.' % (cmd_arg))
+                self.send_private_msg(_user.id, '%s was removed from banned accounts.' % cmd_arg)
 
             if cmd == prefix + 'dj':
                 threading.Thread(target=self.do_dj,
@@ -435,11 +434,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if _user.user_level < 6:
 
-            isdj = 0
             canplay = 1
 
             if dj_mode:
-                canplay = 0
 
                 if _user.account in djs:
                     canplay = 1
@@ -1070,9 +1067,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if tc_user is None:
                     self.send_private_msg(self.active_user.id, 'The account is invalid.')
                 elif not tc_user:
-                    self.send_private_msg(self.active_user.id, '%s is already a moderator.' % (account))
+                    self.send_private_msg(self.active_user.id, '%s is already a moderator.' % account)
                 elif tc_user:
-                    self.send_private_msg(self.active_user.id, '%s was made a room moderator.' % (account))
+                    self.send_private_msg(self.active_user.id, '%s was made a room moderator.' % account)
 
     def do_remove_mod(self, account):
         """
@@ -1087,9 +1084,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
             else:
                 tc_user = self.privacy_.remove_moderator(account)
                 if tc_user:
-                    self.send_private_msg(self.active_user.id, '%s is no longer a room moderator.' % (account))
+                    self.send_private_msg(self.active_user.id, '%s is no longer a room moderator.' % account)
                 elif not tc_user:
-                    self.send_private_msg(self.active_user.id, '%s is not a room moderator.' % (account))
+                    self.send_private_msg(self.active_user.id, '%s is not a room moderator.' % account)
 
     def do_directory(self):
         """ Toggles if the room should be shown on the directory. """
@@ -1111,9 +1108,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """ Toggles if the room should be in greenroom mode. """
         if self.is_client_owner:
             if self.privacy_.set_greenroom():
-                self.send_private_msg(self.active_user.id,'Green room is enabled.')
+                self.send_private_msg(self.active_user.id, 'Green room is enabled.')
             else:
-                self.send_private_msg(self.active_user.id,'Green room is disabled.')
+                self.send_private_msg(self.active_user.id, 'Green room is disabled.')
 
     def do_clear_room_bans(self):
         """ Clear all room bans. """
@@ -1161,7 +1158,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """ Toggles if kick should be used instead of ban for auto bans . """
         pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN = not pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN
         self.send_private_msg(self.active_user.id, 'Use Kick As Auto Ban: %s' %
-                           pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN)
+                              pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN)
 
     # == Python Timer Functions  ==
 
@@ -1272,14 +1269,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if _user.user_level is None:
                 _user.user_level = 6  # account not verified
-                self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
+                self.console_write(pinylib.COLOR['cyan'],
+                                   '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
             if self.buddy_db.find_db_account_bans(_user.account) and self.is_client_mod:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
                     self.send_kick_msg(_user.id)
                 else:
                     self.send_ban_msg(_user.id)
-                    self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % (_user.account))
+                    self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % _user.account)
         else:
             _user.user_level = 7  # guest
             self.console_write(pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
@@ -1287,8 +1285,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if not pinylib.CONFIG.B_ALLOW_GUESTS:
                 if _user.user_level == 7:
                     self.send_ban_msg(_user.id)
-                    self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % (_user.nick))
-                 
+                    self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % _user.nick)
+
         # Lockdown
         # odsum
 
@@ -1331,14 +1329,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if bad_nick > 1:
             time.sleep(1.2)
             self.send_ban_msg(_user.id)
-            self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % (_user.nick))
+            self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % _user.nick)
 
         self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
             _user.nick, _user.id, joind_count))
 
         threading.Thread(target=self.welcome, args=(_user.id,)).start()
 
-    def _removeNonAscii(self, s):
+    @staticmethod
+    def _removeNonAscii(s):
         return "".join(i for i in s if ord(i) < 128)
 
     def check_msg(self, msg):
@@ -1442,17 +1441,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if self.active_user.user_level == 6:
                 if spammer:
                     self.buddy_db.add_bad_account(self.active_user.account)
-                    spammer = False
                     self.send_ban_msg(self.active_user.id)
 
             elif len(self.active_user.account) is 0:
                 if spammer:
-                    spammer = False
                     self.send_ban_msg(self.active_user.id)
         if kick:
             self.send_kick_msg(self.active_user.id)
 
-    def isWord(self, word):
+    @staticmethod
+    def isWord(word):
 
         VOWELS = "aeiou"
         PHONES = ['sh', 'ch', 'ph', 'sz', 'cz', 'sch', 'rz', 'dz']
@@ -1493,7 +1491,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def do_lockdown(self, soft):
 
-        global password
         global lockdown
 
         if self.is_client_owner:
@@ -1509,19 +1506,19 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_chat_msg('Lockdown - no guests allowed.')
                 else:
                     self.send_chat_msg(
-                        'Lockdown - tmp password is: %s' % (password))
+                        'Lockdown - tmp password is: %s' % password)
             else:
                 password = None
                 self.privacy_.set_room_password(password)
                 lockdown = False
                 self.send_chat_msg(
-                    '%s is open to the public again.' % (self.room_name))
+                    '%s is open to the public again.' % self.room_name)
         else:
             if not pinylib.CONFIG.B_ALLOW_GUESTS:
                 lockdown = False
                 self.do_guests()
                 self.send_chat_msg(
-                    '%s is open to the public again.' % (self.room_name))
+                    '%s is open to the public again.' % self.room_name)
 
             else:
                 self.do_guests()
@@ -1567,9 +1564,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
         global tmp_announcement
         tmp_announcement = announcement
         self.send_private_msg(self.active_user.id,
-                              'Room annoucement set to: %s' % (announcement))
+                              'Room annoucement set to: %s' % announcement)
 
-    def announcement(self):
+    @staticmethod
+    def announcement():
 
         global tmp_announcement
         announcement = pinylib.CONFIG.B_ANNOUNCEMENT
@@ -1603,17 +1601,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         time.sleep(5)
         _user = self.users.search(uid)
-      
 
         if _user is not None:
-              
+
             if pinylib.CONFIG.B_ALLOW_GUESTS:
                 if pinylib.CONFIG.B_GREET and _user is not None:
 
                     if not _user.nick.startswith('guest-'):
 
                         if _user.user_level < 4:
-                            self.send_private_msg(_user.id, 'You are Mod  - %shelp for cmds' % (prefix))
+                            self.send_private_msg(_user.id, 'You are Mod  - %shelp for cmds' % prefix)
                             self.send_private_msg(_user.id,
                                                   '%s' % (self.announcement()))
                         elif _user.user_level == 5:
@@ -1657,9 +1654,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         self.send_unban_msg(item['id'])
                         forgiven = True
                     else:
-                        self.send_private_msg(self.active_user.id, '%s was not found in the banlist' % (nick_name))
+                        self.send_private_msg(self.active_user.id, '%s was not found in the banlist' % nick_name)
                 if forgiven:
-                    self.send_private_msg(self.active_user.id, '%s was forgiven.' % (nick_name))
+                    self.send_private_msg(self.active_user.id, '%s was forgiven.' % nick_name)
 
     # == Tinychat API Command Methods. ==
 
@@ -1675,10 +1672,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
             else:
                 tc_usr = pinylib.apis.tinychat.user_info(account)
                 if tc_usr is None:
-                    self.send_private_msg(self.active_user.id, 'Could not find tinychat info for: %s' % (account))
+                    self.send_private_msg(self.active_user.id, 'Could not find tinychat info for: %s' % account)
                 else:
                     self.send_private_msg(self.active_user.id, 'ID: %s, \nLast Login: %s' %
-                                       (tc_usr['tinychat_id'], tc_usr['last_active']))
+                                          (tc_usr['tinychat_id'], tc_usr['last_active']))
 
     # == Other API Command Methods. ==
 
