@@ -1279,9 +1279,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     self.send_ban_msg(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % (_user.account))
-                return
         else:
-               
             _user.user_level = 7  # guest
             self.console_write(pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
 
@@ -1289,7 +1287,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if _user.user_level == 7:
                     self.send_ban_msg(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % (_user.nick))
-                    return
+                 
         # Lockdown
         # odsum
 
@@ -1628,13 +1626,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
                                 random.choice(greetings), _user.nick, self.room_name, self.announcement()))
                         elif _user.user_level == 7:
                             self.send_chat_msg('%s %s, welcome to %s' % (
-                                random.choice(greetings), self.room_name, _user.nick))
+                                random.choice(greetings), _user.nick, self.room_name))
 
     # Experimental forgive - Nov 2017 Odsum
 
     def on_banlist(self, banlist_info):
         """
-        Return json from servers
+        
+        json from servers
         """
         global banlist
         banlist = banlist_info
