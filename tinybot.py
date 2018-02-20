@@ -1248,7 +1248,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 _user.last_login = tc_info['last_active']
 
             if _user.is_owner:
-                _user.user_level = 1  # account owner
+                _user.user_level = 2  # account owner
                 self.console_write(pinylib.COLOR['cyan'], '[User] Room Owner %s:%d:%s' %
                                    (_user.nick, _user.id, _user.account))
             elif _user.is_mod:
@@ -1270,8 +1270,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (
                     _user.user_level, _user.nick, _user.id, _user.account))
 
-            _user.user_level = 6  # account not verified
-            self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
+            if _user.user_level is None:
+                _user.user_level = 6  # account not verified
+                self.console_write(pinylib.COLOR['cyan'], '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
             if self.buddy_db.find_db_account_bans(_user.account) and self.is_client_mod:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
