@@ -1453,10 +1453,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         # each word reviewed and scored
 
-        if word in self.general:
-           pass
-        else:
-            for word in chat_words:
+        for word in chat_words:
+            if word in self.general:
+                pass
+            else:
 
                 if not self.isWord(word):
                     spamlevel += 0.25  # for everyword that isn't english word
@@ -1475,23 +1475,24 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     reason = 'Word ban: ' + lword
                     self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
 
-            if total > 100:  # if message is larger than 100 characters
+        if total > 100:  # if message is larger than 100 characters
+            spamlevel += 0.5
+
+        knownnick = self.buddy_db.find_db_ticket(chatr_user)
+
+        # known spammer from our database.
+
+        if knownnick:
+            spamlevel += 0.25
+            spammer = True
+
+            if knownnick['account']:
                 spamlevel += 0.5
 
-            knownnick = self.buddy_db.find_db_ticket(chatr_user)
-
-            # known spammer from our database.
-
-            if knownnick:
-                spamlevel += 0.25
-                spammer = True
-
-                if knownnick['account']:
-                    spamlevel += 0.5
-
-            if msg == m:
+        for m in self.msgs:
+            if msg == m and m not in self.general:
                 totalcopies += 1
-                oldmsg = msgs[msg]
+                oldmsg = self.msgs[msg]
 
                 msgdiff = oldmsg['ts'] - msg_time
 
@@ -1516,13 +1517,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
             self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
                                (chatr_user, spamlevel))
 
-        msgs.update({'%s' % msg: mpkg})
+        self.msgs.update({'%s' % msg: mpkg})
 
         self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Nick: %s Score: %s' %
                            (chatr_user, spamlevel))
 
-        if len(msgs) > 8:  # store last 8 messages
-            msgs.clear()
+        if len(self.msgs) > 8:  # store last 8 messages
+            self.msgs.clear()
 
         if self.active_user.user_level > 5:
 
