@@ -42,6 +42,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
     msgs = {}
     tmp_announcement = None
 
+    work = Queue.Queue()
+    results = Queue.Queue()
+
+
     @property
     def config_path(self):
         """ Returns the path to the rooms configuration directory. """
@@ -407,6 +411,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
             elif cmd == prefix + 'greet':
                 self.do_greet()
 
+            elif cmd == prefix + 'lurkers':
+                self.do_lurkers()
+
             if cmd == prefix + 'lockdown':
                 self.do_lockdown(1)
 
@@ -685,15 +692,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
         else:
             if self.active_user.user_level > 4:
                 spam_score = 0
-                work = Queue.Queue()
-                results = Queue.Queue()
-
-                t = threading.Thread(target=self.check_msg, args=(work, results, msg))
+                t = threading.Thread(target=self.check_msg, args=(self.work, self.results, msg))
                 t.daemon = True
                 t.start()
-                work.put(1)
-                work.join()
-                spam_score = results.get()
+                self.work.put(1)
+                self.work.join()
+                spam_score = self.results.get()
 
             self.console_write(pinylib.COLOR['white'], self.active_user.nick + ': ' + msg + ' {spam:' + str(spam_score) + '}')
             self.active_user.last_msg = msg
@@ -1257,6 +1261,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
         pinylib.CONFIG.B_ALLOW_GUESTS = not pinylib.CONFIG.B_ALLOW_GUESTS
         self.send_private_msg(self.active_user.id, 'Allow Guests: %s' % pinylib.CONFIG.B_ALLOW_GUESTS)
 
+    def do_lurkers(self):
+        """ Toggles if lurkers are allowed or not. """
+        pinylib.CONFIG.B_ALLOW_LURKERS = not pinylib.CONFIG.B_ALLOW_LURKERS
+        self.send_chat_msg('Allow Lurkers: %s' % pinylib.CONFIG.B_ALLOW_LURKERS)
+
     def do_greet(self):
         """ Toggles if users should be greeted on entry. """
         pinylib.CONFIG.B_GREET = not pinylib.CONFIG.B_GREET
@@ -1388,6 +1397,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_ban_msg(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % _user.nick)
 
+            if _user.is_lurker and not pinylib.CONFIG.B_ALLOW_LURKERS:
+                if _user.user_level > 5:
+                    self.send_ban_msg(_user.id)
+                    self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no lurkers mode' % _user.nick)
+
         # Lockdown
         # odsum
 
@@ -1443,13 +1457,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def check_msg(self, inq, outq, msg):
 
-        # Spam 2.2 Protection ting
+        # Spam 2.3 Protection ting
         # odsum(lucy) //shit hasn't been the same as it was before...
-        # 02.14.18
+        # 02.24.18
 
         while True:
 
-            msgq = inq.get()
+            inq.get()
 
             ban = False
             spammer = False
@@ -1489,7 +1503,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         reason = 'Word ban: ' + lword
                         self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
 
-            if total > 100:  # if message is larger than 100 characters
+            if total > 140:  # if message is larger than 100 characters
                 spamlevel += 0.5
 
             knownnick = self.buddy_db.find_db_ticket(chatr_user)
@@ -1501,7 +1515,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 spammer = True
 
                 if knownnick['account']:
-                    spamlevel += 0.5
+                    spamlevel += 0.25
 
             for m in self.msgs:
                 if msg == m and m not in self.general:
@@ -1518,7 +1532,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         spammer = True
                         kick = True
 
-                    if msgdiff < 5:
+                    if msgdiff < 2:
                         spamlevel += 0.25
 
                     spamlevel += 0.5
@@ -1526,18 +1540,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time}
 
-            if spamlevel >= 2.5:
+            if spamlevel >= 2:
                 self.buddy_db.add_ticket(chatr_account, spamlevel, chatr_user, reason)
                 self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
                                    (chatr_user, spamlevel))
 
             self.msgs.update({'%s' % msg: mpkg})
 
-            if len(self.msgs) > 8:  # store last 8 messages
+            if len(self.msgs) > 4:  # store last 4 messages
                 self.msgs.clear()
 
             if self.active_user.user_level > 5:
-
                 if spamlevel > 3:
                     ban = True
             if ban:
@@ -1675,7 +1688,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         ownr_cmds = ["reboot","kb","p2t", "dir"]
         admin_cmds = ["chatadmin", "rmchatadmin", "addmod", "rmmod"]
         mod_cmds = ["announcement", "lockdown", "lockup", "chatmod", "dechatmod"]
-        cmod_cmds = ["clr","kick", "ban", "unb", "sbl", "fg", "cam", "close", "bada", "banw", "rmw", "rmbad", "badn", "rmv", "v", "noguest", "greet"]
+        cmod_cmds = ["clr","kick", "ban", "unb", "sbl", "fg", "cam", "close", "bada", "banw", "rmw", "rmbad", "badn", "rmv", "v", "noguest", "greet", 'lurkers']
         media_cmds = ["yt", "close", "seek", "reset", "spl", "del", "skip", "yts", "rpl", "pause", "play", "pyst"]
         public_cmds = ["urb","wea","ip","cn","8ball","roll","flip"]
 

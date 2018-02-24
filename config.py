@@ -38,8 +38,8 @@ B_ALLOW_NEWUSERS = True
 B_ALLOW_BROADCASTS = True
 # Allow guests to enter the room.
 B_ALLOW_GUESTS = True
-# Allow lurkers to enter the room.
-B_ALLOW_LURKERS = True
+# Allow lurkers to enter the room.  (people who don't solve the captcha?
+B_ALLOW_LURKERS = False
 # Allow guest nicks.
 B_ALLOW_GUESTS_NICKS = True
 B_USE_KICK_AS_AUTOBAN = False
