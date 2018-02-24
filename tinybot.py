@@ -685,13 +685,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :type msg: str
         """
         prefix = pinylib.CONFIG.B_PREFIX
+        spam_score = 0
 
         if msg.startswith(prefix):
             self.cmd_handler(msg)
 
         else:
             if self.active_user.user_level > 4:
-                spam_score = 0
                 t = threading.Thread(target=self.check_msg, args=(self.work, self.results, msg))
                 t.daemon = True
                 t.start()
