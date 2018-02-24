@@ -4,6 +4,11 @@
 Based off Nortxort's Tinychat Bot and Pinylib.
 
 ## Updates
+
+2.2.5
+- Restored boy.py and pinylib's original files 
+- Added in Nortxort's forgive, unban, banlist search
+
 2.2.4
 - Clean up tinyboy.py, finally using pyCharm
 - Resorted Pinylib.py and user.py back to default

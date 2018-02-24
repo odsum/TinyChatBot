@@ -26,9 +26,6 @@ DEBUG_FILE_NAME = 'pinylib_debug.log'
 CONFIG_PATH = 'rooms/'
 B_PREFIX = '!'
 
-# If you're running two bots, set one to Master.  Splits the functionality
-B_IS_MASTER = True
-
 # The maximum amount of match bans.
 B_MAX_MATCH_BANS = 1
 # Public commands enabled.

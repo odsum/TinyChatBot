@@ -7,6 +7,7 @@ class Privacy:
     This class represents tinychat's privacy page for a room,
     it contains methods to change a rooms privacy settings.
     """
+
     def __init__(self, proxy):
         """ Create a instance of the Privacy class.
 

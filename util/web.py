@@ -8,7 +8,6 @@ __all__ = ['quote', 'unquote']
 
 log = logging.getLogger(__name__)
 
-
 #  A session that all requests will use...apparently not.
 __request_session = requests.session()
 
@@ -145,7 +144,7 @@ def http_post(post_url, post_data, **kwargs):
 
         try:
             pr = __request_session.request(method='POST', url=post_url, data=post_data, headers=default_header,
-                                          allow_redirects=redirect, proxies=proxy, timeout=timeout, stream=stream)
+                                           allow_redirects=redirect, proxies=proxy, timeout=timeout, stream=stream)
             if json:
                 json_response = pr.json()
         except ValueError as ve:

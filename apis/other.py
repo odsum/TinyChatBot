@@ -20,6 +20,7 @@ def urbandictionary_search(search):
     else:
         return None
 
+
 def weather_search(city):
     """
     Searches worldweatheronline's API for weather data for a given city.
@@ -29,21 +30,21 @@ def weather_search(city):
     :return: weather data str or None on no match or error.
     """
     if str(city).strip():
-            city = str(city)
-            api_key = '080df4dcd3105e2140eae8a066181670'
-            weather_api_url = 'http://api.openweathermap.org/data/2.5/forecast/daily?q=%s&cnt=3&appid=%s' % \
-                              (city, api_key)
+        city = str(city)
+        api_key = '080df4dcd3105e2140eae8a066181670'
+        weather_api_url = 'http://api.openweathermap.org/data/2.5/forecast/daily?q=%s&cnt=3&appid=%s' % \
+                          (city, api_key)
 
-            response = util.web.http_get(url=weather_api_url, json=True)
-            if response is not None:
-                try:
-                        w = response['list']
-                        c = w[0]['response'][0]['main']
-                        result = 'In %s, the temperature is %s' % (city, c)
-                        return result
+        response = util.web.http_get(url=weather_api_url, json=True)
+        if response is not None:
+            try:
+                w = response['list']
+                c = w[0]['response'][0]['main']
+                result = 'In %s, the temperature is %s' % (city, c)
+                return result
 
-                except (IndexError, KeyError):
-                    return None
+            except (IndexError, KeyError):
+                return None
     else:
         return None
 

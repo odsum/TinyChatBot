@@ -1,99 +1,103 @@
-# BuddyBot
-
 import logging
 import threading
-import Queue
-import sys
 import time
 import tinybot
-
 
 log = logging.getLogger(__name__)
 
 
-def buddy_start(in_queue, out_queue):
-
-    while True:
-
-        item = in_queue.get()
+def main():
+    if tinybot.pinylib.CONFIG.ROOM:
         room_name = tinybot.pinylib.CONFIG.ROOM
+    else:
+        room_name = raw_input('Enter room name: ').strip()
 
-        if tinybot.pinylib.CONFIG.ACCOUNT and tinybot.pinylib.CONFIG.PASSWORD:
-            bot = tinybot.TinychatBot(room=room_name, account=tinybot.pinylib.CONFIG.ACCOUNT,
-                                      password=tinybot.pinylib.CONFIG.PASSWORD)
-        else:
-            bot = tinybot.TinychatBot(room=room_name)
+    if tinybot.pinylib.CONFIG.ACCOUNT and tinybot.pinylib.CONFIG.PASSWORD:
+        bot = tinybot.TinychatBot(room=room_name, account=tinybot.pinylib.CONFIG.ACCOUNT,
+                                  password=tinybot.pinylib.CONFIG.PASSWORD)
+    else:
+        bot = tinybot.TinychatBot(room=room_name)
 
+    do_login = raw_input('Login? [enter=no] ')
+    if do_login:
+        is_logged_in = bot.login()
+        while not is_logged_in:
+            bot.account = raw_input('Account: ').strip()
+            bot.password = raw_input('Password: ')
+            if bot.account == '/' or bot.password == '/':
+                main()
+                break
+            elif bot.account == '//' or bot.password == '//':
+                do_login = False
+                break
+            else:
+                is_logged_in = bot.login()
+        if is_logged_in:
+            bot.console_write(tinybot.pinylib.COLOR['bright_green'], 'Logged in as: %s' % bot.account)
+        if not do_login:
+            bot.account = Noneyes
+            bot.password = None
+    if tinybot.pinylib.CONFIG.BOTNICK:
         bot.nickname = tinybot.pinylib.CONFIG.BOTNICK
-        do_login = 1
+    else:
+        bot.nickname = raw_input('Enter nick name: (optional) ').strip()
 
-        if do_login:
-            if not bot.account:
-                bot.account = raw_input('Account: ').strip()
-            if not bot.password:
-                bot.password = raw_input('Password: ')
+    threading.Thread(target=bot.connect).start()
 
-            is_logged_in = bot.login()
-            while not is_logged_in:
-                bot.account = raw_input('Account: ').strip()
-                bot.password = raw_input('Password: ')
-                if bot.account == '/' or bot.password == '/':
-                    main()
-                    break
-                elif bot.account == '//' or bot.password == '//':
-                    do_login = False
-                    break
+    while not bot.is_connected:
+        time.sleep(2)
+
+    while bot.is_connected:
+        chat_msg = raw_input()
+        if chat_msg.startswith('/'):
+            msg_parts = chat_msg.split(' ')
+            cmd = msg_parts[0].lower().strip()
+            if cmd == '/q':
+                bot.disconnect()
+            elif cmd == '/a':
+                if len(bot.users.signed_in) == 0:
+                    print ('No signed in users in the room.')
                 else:
-                    is_logged_in = bot.login()
-            if is_logged_in:
-                bot.console_write(tinybot.pinylib.COLOR['bright_green'], '[Bot] Account: %s' % bot.account)
-            if not do_login:
-                bot.account = None
-                bot.password = None
+                    for user in bot.users.signed_in:
+                        print ('%s:%s' % (user.nick, user.account))
+            elif cmd == '/u':
+                for user in bot.users.all:
+                    print ('%s: %s' % (bot.users.all[user].nick, bot.users.all[user].user_level))
+            elif cmd == '/m':
+                if len(bot.users.mods) == 0:
+                    print ('No moderators in the room.')
+                else:
+                    for mod in bot.users.mods:
+                        print (mod.nick)
+            elif cmd == '/n':
+                if len(bot.users.norms) == 0:
+                    print ('No normal users in the room.')
+                else:
+                    for norm in bot.users.norms:
+                        print (norm.nick)
+            elif cmd == '/l':
+                if len(bot.users.lurkers) == 0:
+                    print ('No lurkers in the room.')
+                else:
+                    for lurker in bot.users.lurkers:
+                        print (lurker.nick)
 
-        threading.Thread(target=bot.connect).start()
+            # FOR DEBUGGING METHODS!
+            elif cmd == '/t':
+                pass
 
-        while not bot.is_connected:
-            time.sleep(2)
-
-        while bot.is_connected:
-            chat_msg = raw_input()
+        else:
             bot.send_chat_msg(chat_msg)
-
-        result = item
-        out_queue.put(result)
-        in_queue.task_done()
 
 
 if __name__ == '__main__':
-
     if tinybot.pinylib.CONFIG.DEBUG_TO_FILE:
         formater = '%(asctime)s : %(levelname)s : %(filename)s : %(lineno)d : %(funcName)s() : %(name)s : %(message)s'
         logging.basicConfig(filename=tinybot.pinylib.CONFIG.DEBUG_FILE_NAME,
                             level=tinybot.pinylib.CONFIG.DEBUG_LEVEL,
                             format=formater)
-        log.info('Starting buddybot: %s, pinylib version: %s' % (tinybot.__version__,
-                                                                       tinybot.pinylib.__version__))
+        log.info('Starting tinybot: %s, pinylib version: %s' % (tinybot.__version__,
+                                                                tinybot.pinylib.__version__))
     else:
         log.addHandler(logging.NullHandler())
-
-    work = Queue.Queue()
-    results = Queue.Queue()
-    total = 1
-
-    for i in xrange(4):
-        t = threading.Thread(target=buddy_start, args=(work, results))
-        t.daemon = True
-        t.start()
-
-    # produce data
-    for i in xrange(total):
-        work.put(i)
-
-    work.join()
-
-    # get the results
-    for i in xrange(total):
-        print results.get()
-
-    sys.exit()
+    main()

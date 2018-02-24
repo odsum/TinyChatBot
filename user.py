@@ -12,7 +12,6 @@ class BannedUser:
         self.account = kwargs.get('username', '')
         self.banned_by = kwargs.get('moderator', '')
         self.reason = kwargs.get('reason', '')
-        self.ban_time = time.time()
 
 
 class User:
@@ -211,8 +210,27 @@ class Users:
                 _users_containing.append(self.all[user])
         return _users_containing
 
-    # Ban related. This is still a work in progress.
-    # It has not been fully implemented in the code.
+    # Banlist related.
+    @staticmethod
+    def _find_most_recent(user_obj_list):
+        """
+        Find the most recent banned user in a list of BannedUser objects.
+
+        :param user_obj_list: A list containing BannedUser objects.
+        :type user_obj_list: list
+        :return: A BannedUser object or None.
+        :rtype: BannedUser | None
+        """
+        _highest = 0
+        _user_obj = None
+
+        for user_obj in user_obj_list:
+            if user_obj.ban_id > _highest:
+                _highest = user_obj.ban_id
+                _user_obj = user_obj
+
+        return _user_obj
+
     @property
     def banlist(self):
         """
@@ -249,6 +267,16 @@ class Users:
             if self.banlist[ban_id].account:
                 _accounts.append(self.banlist[ban_id])
         return _accounts
+
+    @property
+    def last_banned(self):
+        """
+        Returns the last BannedUser object.
+
+        :return: The last BannedUser object from the banlist.
+        :rtype: BannedUser | None
+        """
+        return self._find_most_recent(self.banned_users)
 
     def add_banned_user(self, ban_info):
         """
@@ -296,6 +324,28 @@ class Users:
         if ban_id in self.banlist:
             return self.banlist[ban_id]
         return None
+
+    def search_banlist_by_nick(self, user_name):
+        """
+        Search the banlist for a username.
+
+        If more than one username match is found,
+        then the most recent BannedUser object will be returned.
+
+        :param user_name: The user name of the banned user to search for.
+        :type user_name: str
+        :return: A BannedUser object or None if no match was found in the banlist.
+        :rtype: BannedUser | None
+        """
+        _candidates = []
+        for ban_id in self.banlist:
+            if self.banlist[ban_id].nick == user_name:
+                _candidates.append(self.banlist[ban_id])
+
+        if len(_candidates) == 0:
+            return None
+
+        return self._find_most_recent(_candidates)
 
     def search_banlist_containing(self, contains):
         """

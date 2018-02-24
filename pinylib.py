@@ -15,7 +15,7 @@ import apis.tinychat
 from page import acc
 from util import file_handler, string_util
 
-__version__ = '1.0.9-buddy'
+__version__ = '1.0.10'
 
 CONFIG = config
 init(autoreset=True)
@@ -38,8 +38,9 @@ COLOR = {
 
 
 def write_to_log(msg, room_name):
-    """ 
+    """
     Writes chat events to log.
+
     :param msg: the message to write to the log.
     :type msg: str
     :param room_name: the room name.
@@ -70,12 +71,12 @@ class TinychatRTCClient(object):
         self._req = 1
 
     def console_write(self, color, message):
-        """ 
+        """
         Writes message to console.
+
         :param color: the colorama color representation.
         :param message: str the message to write.
         """
-        msg_encoded = message.encode('utf-8', 'replace')
         if config.USE_24HOUR:
             ts = time.strftime('%H:%M:%S')
         else:
@@ -83,8 +84,7 @@ class TinychatRTCClient(object):
         if config.CONSOLE_COLORS:
             msg = COLOR['white'] + '[' + ts + '] ' + Style.RESET_ALL + color + message
         else:
-            # msg = '[' + ts + '] ' + message
-            msg = '[' + ts + '][' + self.room_name + '] ' + msg_encoded
+            msg = '[' + ts + '] ' + message
         try:
             print(msg)
         except UnicodeEncodeError as ue:
@@ -96,8 +96,9 @@ class TinychatRTCClient(object):
             write_to_log('[' + ts + '] ' + message, self.room_name)
 
     def login(self):
-        """ 
+        """
         Login to tinychat.
+
         :return: True if logged in, else False.
         :rtype: bool
         """
@@ -128,23 +129,18 @@ class TinychatRTCClient(object):
             header=tc_header,
             origin='https://tinychat.com'
         )
-        try:
-            if self._ws.connected:
-                log.info('connecting to: %s' % self.room_name)
-                if self.send_join_msg():
-                    self.is_connected = True
-                    self.__callback()
-        except:
-            traceback.print_exc()
-            self.console_write(COLOR['bright_red'], '[SERVER] Reconnecting in 3 seconds...')
-            time.sleep(3)
-            self.reconnect()
+
+        if self._ws.connected:
+            log.info('connecting to: %s' % self.room_name)
+            if self.send_join_msg():
+                self.is_connected = True
+                self.__callback()
 
     def disconnect(self):
         """ Disconnect from the server. """
         self.is_connected = False
-        # self._ws.send_close(status=1001, reason='GoingAway')
-        # self._ws.abort()  # not sure if this is actually needed.
+        self._ws.send_close(status=1001, reason='GoingAway')
+        self._ws.abort()  # not sure if this is actually needed.
         self._req = 1
         self._ws = None
         self.client_id = 0
@@ -189,9 +185,6 @@ class TinychatRTCClient(object):
 
                     elif event == 'closed':
                         self.on_closed(json_data['error'])
-
-                    elif event == 'captcha':
-                        self.on_captcha(json_data)
 
                     elif event == 'joined':
                         self.on_joined(json_data['self'])
@@ -249,6 +242,9 @@ class TinychatRTCClient(object):
                     elif event == 'stream_moder_close':
                         self.on_stream_moder_close(json_data)
 
+                    elif event == 'captcha':
+                        self.on_captcha(json_data['key'])
+
                     elif event == 'yut_playlist':
                         self.on_yut_playlist(json_data)
 
@@ -262,7 +258,7 @@ class TinychatRTCClient(object):
                         self.on_yut_stop(json_data)
 
                     else:
-                        self.console_write(COLOR['bright_red'], '[ERROR] Unknown command: %s %s' % (event, json_data))
+                        self.console_write(COLOR['bright_red'], 'Unknown command: %s %s' % (event, json_data))
 
                     if config.DEBUG_MODE:
                         self.console_write(COLOR['white'], data)
@@ -307,7 +303,7 @@ class TinychatRTCClient(object):
         self.is_client_owner = client_info['owner']
         client = self.users.add(client_info)
         client.user_level = 0
-        self.console_write(COLOR['bright_green'], '[Bot] joined the room: %s:%s' % (client.nick, client.id))
+        self.console_write(COLOR['bright_green'], 'Client joined the room: %s:%s' % (client.nick, client.id))
 
         # Not sure if this is the right place for this.
         if self.is_client_mod:
@@ -323,24 +319,26 @@ class TinychatRTCClient(object):
         if config.DEBUG_MODE:
             self.console_write(COLOR['white'], '## Room Information ##')
             for k in room_info:
-                self.console_write(COLOR['white'], '[Room] %s: %s' % (k, room_info[k]))
+                self.console_write(COLOR['white'], '%s: %s' % (k, room_info[k]))
 
     def on_room_settings(self, room_settings):
         """
         Received when a change has been made to the room settings(privacy page).
-        Not really sure what role this plays, but it happens when 
+
+        Not really sure what role this plays, but it happens when
         a change has been made to the privacy page.
+
         :param room_settings: The room room settings.
         :type room_settings: dict
         """
         if config.DEBUG_MODE:
             self.console_write(COLOR['white'], '## Room Settings Change ##')
             for k in room_settings:
-                self.console_write(COLOR['white'], '[Room] %s: %s' % (k, room_settings[k]))
+                self.console_write(COLOR['white'], '%s: %s' % (k, room_settings[k]))
 
     def on_userlist(self, user_info):
         """
-        Received upon joining a room. 
+        Received upon joining a room.
 
         This contains all the users present in the room when joining.
 
@@ -351,17 +349,17 @@ class TinychatRTCClient(object):
             _user = self.users.add(user_info)
             if _user.is_owner:
                 _user.user_level = 1
-                self.console_write(COLOR['red'], '[User] room owner: %s:%s:%s' %
+                self.console_write(COLOR['red'], 'Joins room owner: %s:%s:%s' %
                                    (_user.nick, _user.id, _user.account))
             elif _user.is_mod:
                 _user.user_level = 3
-                self.console_write(COLOR['bright_red'], '[User] moderator: %s:%s:%s' %
+                self.console_write(COLOR['bright_red'], 'Joins moderator: %s:%s:%s' %
                                    (_user.nick, _user.id, _user.account))
             elif _user.account:
-                self.console_write(COLOR['bright_yellow'], '[User] account - %s:%s:%s' %
+                self.console_write(COLOR['bright_yellow'], 'Joins: %s:%s:%s' %
                                    (_user.nick, _user.id, _user.account))
             else:
-                self.console_write(COLOR['cyan'], '[User] guest - %s:%s' % (_user.nick, _user.id))
+                self.console_write(COLOR['cyan'], 'Joins: %s:%s' % (_user.nick, _user.id))
 
     def on_join(self, join_info):
         """
@@ -391,7 +389,7 @@ class TinychatRTCClient(object):
                 self.console_write(COLOR['bright_yellow'], '%s:%s has account: %s' %
                                    (_user.nick, _user.id, _user.account))
         else:
-            self.console_write(COLOR['cyan'], '[User] %s:%s joined the room' % (_user.nick, _user.id))
+            self.console_write(COLOR['cyan'], '%s:%s joined the room' % (_user.nick, _user.id))
 
     def on_nick(self, uid, nick):
         """
@@ -405,7 +403,7 @@ class TinychatRTCClient(object):
         _user = self.users.search(uid)
         old_nick = _user.nick
         _user.nick = nick
-        self.console_write(COLOR['bright_cyan'], '[User] %s:%s Changed nick to: %s' % (old_nick, uid, nick))
+        self.console_write(COLOR['bright_cyan'], '%s:%s Changed nick to: %s' % (old_nick, uid, nick))
 
     def on_quit(self, uid):
         """
@@ -416,7 +414,7 @@ class TinychatRTCClient(object):
         """
         _user = self.users.delete(uid)
         if _user is not None:
-            self.console_write(COLOR['cyan'], '[User] %s:%s Left the room.' % (_user.nick, uid))
+            self.console_write(COLOR['cyan'], '%s:%s Left the room.' % (_user.nick, uid))
 
     def on_ban(self, ban_info):
         """
@@ -428,33 +426,10 @@ class TinychatRTCClient(object):
         if ban_info['success']:
             banned_user = self.users.add_banned_user(ban_info)
             if banned_user.account:
-                self.console_write(COLOR['bright_red'], '[Security] %s:%s was banned from the room.' %
+                self.console_write(COLOR['bright_red'], '%s:%s was banned from the room.' %
                                    (banned_user.nick, banned_user.account))
             else:
-                self.console_write(COLOR['bright_red'], '[Security] %s was banned from the room.' % banned_user.nick)
-
-    def on_captcha(self, captcha):
-
-        if captcha['key']:
-            recaptcha = captcha['key']
-            print "tinychat.com/cauth/recaptcha?token=" + recaptcha
-            payload = {
-                'tc': 'captcha',
-                'req': self._req,
-                'token': '03AO6mBfwawYzZZCHMJbU1jLeMhxKeoRuFB9howwUSGQk2BSoEliMsjRHHZ9_suwGzrPHpNI9zHvoZata6sVSEhfaWgSfBPkD-8E2l54EEBmoFPzMJdGq-rBg4gRd1jNw1ZRudZuK3paaG7Qv-bJ8vdBI9qb4NSAUa9lMlnXj4IeDylyuzR6N9nIPvKSZrVdUoqCbp9jwmEpA9rDNGLSVbLFOXWbLa9uX6B8nlD2onYLVsRR0uFdbYlXNn7AYUwiGVynQWY4QVI5g2V0BDfuoNa0LFQrUYoSWc4Q0N_hJYYdKYiGtL7bmNHvBEwMBo16VQzwHam-6Gqnn6QUHovTFAyKdTeFe96c9RYw'
-            }
-            self.send(payload)
-        # print(captcha['key'])
-        # driver = webdriver.Firefox()
-        # _url = 'https://tinychat.com/{0}'.format(self.room_name)
-        # driver.get(_url)
-
-        # execute the javascript.
-        # driver.execute_script('ShowRecaptcha("' + token + '")')
-        # raw_input('\nIf the captcha comes up in the browser, solve it, else click enter.')
-
-        # close the browser window.
-        # driver.close()
+                self.console_write(COLOR['bright_red'], '%s was banned from the room.' % banned_user.nick)
 
     def on_unban(self, unban_info):
         """
@@ -465,11 +440,12 @@ class TinychatRTCClient(object):
         """
         unbanned = self.users.delete_banned_user(unban_info)
         if unbanned is not None:
-            self.console_write(COLOR['green'], '[Security] %s was unbanned.' % unbanned.nick)
+            self.console_write(COLOR['green'], '%s was unbanned.' % unbanned.nick)
 
     def on_banlist(self, banlist_info):
         """
         Received when a request for the ban list has been made.
+
         :param banlist_info: The ban list information such as whether it was a success or not.
         :type banlist_info: dict
         """
@@ -480,7 +456,7 @@ class TinychatRTCClient(object):
                 for item in banlist_info['items']:
                     self.users.add_banned_user(item)
             else:
-                self.console_write(COLOR['green'], '[Room] The banlist is empty.')
+                self.console_write(COLOR['green'], 'The banlist is empty.')
 
     def on_msg(self, uid, msg):
         """
@@ -508,7 +484,7 @@ class TinychatRTCClient(object):
         :param msg: The chat message.
         :type msg: str
         """
-        self.console_write(COLOR['bright_green'], '[MSg] %s: %s' % (self.active_user.nick, msg))
+        self.console_write(COLOR['bright_green'], '%s: %s' % (self.active_user.nick, msg))
 
     def on_pvtmsg(self, uid, msg):
         """
@@ -536,7 +512,7 @@ class TinychatRTCClient(object):
         :param private_msg: The private message.
         :type private_msg: str
         """
-        self.console_write(COLOR['green'], '[PRIMSG] %s: %s' % (self.active_user.nick, private_msg))
+        self.console_write(COLOR['green'], 'Private message from %s: %s' % (self.active_user.nick, private_msg))
 
     def on_publish(self, uid):
         """
@@ -549,7 +525,7 @@ class TinychatRTCClient(object):
         _user.is_broadcasting = True
         if _user.is_waiting:
             _user.is_waiting = False
-        self.console_write(COLOR['yellow'], '[User] %s:%s is broadcasting.' % (_user.nick, uid))
+        self.console_write(COLOR['yellow'], '%s:%s is broadcasting.' % (_user.nick, uid))
 
     def on_unpublish(self, uid):
         """
@@ -561,7 +537,7 @@ class TinychatRTCClient(object):
         _user = self.users.search(uid)
         if _user is not None:
             _user.is_broadcasting = False
-            self.console_write(COLOR['yellow'], '[User] %s:%s stopped broadcasting.' % (_user.nick, uid))
+            self.console_write(COLOR['yellow'], '%s:%s stopped broadcasting.' % (_user.nick, uid))
 
     def on_sysmsg(self, msg):
         """
@@ -588,6 +564,9 @@ class TinychatRTCClient(object):
 
     def on_pending_moderation(self, pending):
         """ Received when a user is waiting in the green room. """
+        if not self.is_green_room:
+            self.is_green_room = True
+
         _user = self.users.search(pending['handle'])
         if _user is not None:
             _user.is_waiting = True
@@ -598,27 +577,35 @@ class TinychatRTCClient(object):
     def on_stream_moder_allow(self, moder_data):
         """
         Received when a user has been allowed by the client, to broadcast in a green room.
+
         :param moder_data: Contains information about the allow request.
         :type moder_data: dict
         """
         _user = self.users.search(moder_data['handle'])
         if _user is not None and config.DEBUG_MODE:
-            self.console_write(COLOR['bright_yellow'],
-                               '[User] %s:%s was allowed to broadcast.' % (_user.nick, _user.id))
+            self.console_write(COLOR['bright_yellow'], '%s:%s was allowed to broadcast.' % (_user.nick, _user.id))
 
     def on_stream_moder_close(self, moder_data):
         """
         Received when a user has their broadcast closed by the client.
+
         :param moder_data: Contains information about the close request.
         :type moder_data: dict
         """
         if moder_data['success']:
             _user = self.users.search(moder_data['handle'])
             if _user is not None and config.DEBUG_MODE:
-                self.console_write(COLOR['bright_yellow'],
-                                   '[User] %s:%s\'s broadcast was closed.' % (_user.nick, _user.id))
+                self.console_write(COLOR['bright_yellow'], '%s:%s\'s broadcast was closed.' % (_user.nick, _user.id))
         else:
             log.error('failed to close a broadcast: %s' % moder_data['reason'])
+
+    def on_captcha(self, key):
+        """
+
+        """
+        log.debug('captcha key: %s' % key)
+        self.console_write(COLOR['bright_red'], 'Captcha required, sending nonsense.')
+        self.send_captcha('03AO6mBfwawYzZZCHMJbU1jLeMhxKeoRuFB9howwUSGQk2BSoEliMsjRHHZ9_suwGzrPHpNI9zHvoZata6sVSEhfaWgSfBPkD-8E2l54EEBmoFPzMJdGq-rBg4gRd1jNw1ZRudZuK3paaG7Qv-bJ8vdBI9qb4NSAUa9lMlnXj4IeDylyuzR6N9nIPvKSZrVdUoqCbp9jwmEpA9rDNGLSVbLFOXWbLa9uX6B8nlD2onYLVsRR0uFdbYlXNn7AYUwiGVynQWY4QVI5g2V0BDfuoNa0LFQrUYoSWc4Q0N_hJYYdKYiGtL7bmNHvBEwMBo16VQzwHam-6Gqnn6QUHovTFAyKdTeFe96c9RYwno')
 
     def on_yut_playlist(self, playlist_data):  # TODO: Needs more work.
         """
@@ -638,9 +625,11 @@ class TinychatRTCClient(object):
     def on_yut_play(self, yt_data):
         """
         Received when a youtube gets started or time searched.
-        This also gets received when the client starts a youtube, the information is 
+
+        This also gets received when the client starts a youtube, the information is
         however ignored in that case.
-        :param yt_data: The event information contains info such as the ID (handle) of the user 
+
+        :param yt_data: The event information contains info such as the ID (handle) of the user
         starting/searching the youtube, the youtube ID, youtube time and so on.
         :type yt_data: dict
         """
@@ -652,19 +641,21 @@ class TinychatRTCClient(object):
 
         if yt_data['item']['offset'] == 0:
             # the video was started from the start.
-            self.console_write(COLOR['bright_magenta'], '[MEDIA] %s started youtube video (%s)' %
+            self.console_write(COLOR['bright_magenta'], '%s started youtube video (%s)' %
                                (user_nick, yt_data['item']['id']))
         elif yt_data['item']['offset'] > 0:
             # the video was searched while still playing.
-            self.console_write(COLOR['bright_magenta'], '[MEDIA} %s searched the youtube video to: %s' %
+            self.console_write(COLOR['bright_magenta'], '%s searched the youtube video to: %s' %
                                (user_nick, int(round(yt_data['item']['offset']))))
 
     def on_yut_pause(self, yt_data):
         """
         Received when a youtube gets paused or searched while paused.
-        This also gets received when the client pauses or searches while paused, the information is 
+
+        This also gets received when the client pauses or searches while paused, the information is
         however ignored in that case.
-        :param yt_data: The event information contains info such as the ID (handle) of the user 
+
+        :param yt_data: The event information contains info such as the ID (handle) of the user
         pausing/searching the youtube, the youtube ID, youtube time and so on.
         :type yt_data: dict
         """
@@ -674,7 +665,7 @@ class TinychatRTCClient(object):
                 _user = self.users.search(yt_data['handle'])
                 user_nick = _user.nick
 
-        self.console_write(COLOR['bright_magenta'], '[MEDIA] %s paused the video at %s' %
+        self.console_write(COLOR['bright_magenta'], '%s paused the video at %s' %
                            (user_nick, int(round(yt_data['item']['offset']))))
 
     def on_yut_stop(self, yt_data):
@@ -684,7 +675,7 @@ class TinychatRTCClient(object):
         :param yt_data: The event information contains the ID of the video, the time and so on.
         :type yt_data: dict
         """
-        self.console_write(COLOR['bright_magenta'], '[MEDIA] %s was stopped.' % yt_data['item']['id'])
+        self.console_write(COLOR['bright_magenta'], 'The youtube (%s) was stopped.' % yt_data['item']['id'])
 
     # Message Construction.
     def send_join_msg(self):
@@ -823,6 +814,7 @@ class TinychatRTCClient(object):
     def send_room_password_msg(self, password):
         """
         Send a room password message.
+
         :param password: The room password.
         :type password: str
         """
@@ -836,6 +828,7 @@ class TinychatRTCClient(object):
     def send_cam_approve_msg(self, uid):
         """
         Allow a user to broadcast in green room enabled room.
+
         :param uid: The ID of the user.
         :type uid: int
         """
@@ -849,6 +842,7 @@ class TinychatRTCClient(object):
     def send_close_user_msg(self, uid):
         """
         Close a users broadcast.
+
         :param uid: The ID of the user.
         :type uid: int
         """
@@ -856,6 +850,20 @@ class TinychatRTCClient(object):
             'tc': 'stream_moder_close',
             'req': self._req,
             'handle': uid
+        }
+        self.send(payload)
+
+    def send_captcha(self, token):
+        """
+        Send the captcha token.
+
+        :param token: The captcha response token.
+        :type token: str
+        """
+        payload = {
+            'tc': 'captcha',
+            'req': self._req,
+            'token': token
         }
         self.send(payload)
 
@@ -946,6 +954,7 @@ class TinychatRTCClient(object):
     def send_yut_play(self, video_id, duration, title, offset=0):
         """
         Start or search a youtube video.
+
         :param video_id: The ID of the youtube video to start or search.
         :type video_id: str
         :param duration: The duration of the video in seconds.
@@ -1047,8 +1056,9 @@ class TinychatRTCClient(object):
 
     # Helper Methods.
     def get_runtime(self, as_milli=False):
-        """ 
+        """
         Get the time the connection has been alive.
+
         :param as_milli: True return the time as milliseconds, False return seconds.
         :type as_milli: bool
         :return: Seconds or milliseconds.

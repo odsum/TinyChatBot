@@ -261,7 +261,6 @@ class DataBase:
         Find a badword in the database.
 
         :param word: The banned word to find.
-        :type account: str
         :return: True/False
         :rtype: dict
         """
@@ -274,7 +273,6 @@ class DataBase:
         Find a nick in the database.
 
         :param nick: The banned nick.
-        :type account: str
         :return: True/False
         :rtype: dict
         """
