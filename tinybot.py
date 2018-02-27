@@ -266,7 +266,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         for i, user in enumerate(_users):
                             if user.nick != self.nickname and user.user_level > self.active_user.user_level:
                                 if i <= pinylib.CONFIG.B_MAX_MATCH_BANS - 1:
-                                    self.process_kick(user.id)
+                                    self.send_kick_msg(user.id)
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
@@ -297,7 +297,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         for i, user in enumerate(_users):
                             if user.nick != self.nickname and user.user_level > self.active_user.user_level:
                                 if i <= pinylib.CONFIG.B_MAX_MATCH_BANS - 1:
-                                    self.process_ban(user.id)
+                                    self.send_ban_msg(user.id)
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
@@ -306,7 +306,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         self.send_chat_msg(
                             'i dont wanna be a part of ya problems..')
                     else:
-                        self.send_Ban_msg(_user.id)
+                        self.send_ban_msg(_user.id)
 
     def do_banlist_search(self, user_name):
         """
@@ -319,16 +319,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         if self.is_client_mod:
             if len(user_name) == 0:
-                self.send_chat_msg('Missing user name to search for.')
+                self.send_private_msg(self.active_user.id, 'Missing user name to search for.')
             else:
                 self.bl_search_list = self.users.search_banlist_containing(user_name)
                 if len(self.bl_search_list) == 0:
-                    self.send_chat_msg('No banlist matches.')
+                    self.send_private_msg(self.active_user.id, 'No banlist matches.')
                 else:
                     _ban_list_info = '\n'.join('(%s) %s:%s [%s]' % (i, user.nick, user.account, user.ban_id)
                                                for i, user in enumerate(self.bl_search_list))
                     # maybe user string_util.chunk_string here
-                    self.send_chat_msg(_ban_list_info)
+                    self.send_private_msg(self.active_user.id, _ban_list_info)
 
     def do_forgive(self, user_index):
         """
@@ -343,17 +343,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
             try:
                 user_index = int(user_index)
             except ValueError:
-                self.send_chat_msg('Only numbers allowed (%s)' % user_index)
+                self.send_private_msg(self.active_user.id, 'Only numbers allowed (%s)' % user_index)
             else:
                 if len(self.bl_search_list) > 0:
                     if user_index <= len(self.bl_search_list) - 1:
                         self.send_unban_msg(self.bl_search_list[user_index].ban_id)
                     else:
                         if len(self.bl_search_list) > 1:
-                            self.send_chat_msg(
+                            elf.send_private_msg(self.active_user.id,
                                 'Please make a choice between 0-%s' % len(self.bl_search_list))
                 else:
-                    self.send_chat_msg('The ban search is empty.')
+                    self.send_private_msg(self.active_user.id, 'The ban search is empty.')
 
     def do_unban(self, user_name):
         """
@@ -365,19 +365,19 @@ class TinychatBot(pinylib.TinychatRTCClient):
         """
         if self.is_client_mod:
             if len(user_name.strip()) == 0:
-                self.send_chat_msg('Missing user name.')
+                self.send_private_msg(self.active_user.id, 'Missing user name.')
             elif user_name == '/':  # shortcut to the last banned user.
                 last_banned_user = self.users.last_banned
                 if last_banned_user is not None:
                     self.send_unban_msg(last_banned_user.ban_id)
                 else:
-                    self.send_chat_msg('Failed to find the last banned user.')
+                    self.send_private_msg(self.active_user.id, 'Failed to find the last banned user.')
             else:
                 banned_user = self.users.search_banlist_by_nick(user_name)
                 if banned_user is not None:
                     self.send_unban_msg(banned_user.ban_id)
                 else:
-                    self.send_chat_msg('No user named: %s in the banlist.' % user_name)
+                    self.send_private_msg(self.active_user.id, 'No user named: %s in the banlist.' % user_name)
 
 
     # == Tinychat Broadcasting ==
