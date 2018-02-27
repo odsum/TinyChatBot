@@ -350,8 +350,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         self.send_unban_msg(self.bl_search_list[user_index].ban_id)
                     else:
                         if len(self.bl_search_list) > 1:
-                            elf.send_private_msg(self.active_user.id,
-                                'Please make a choice between 0-%s' % len(self.bl_search_list))
+                            self.send_private_msg(self.active_user.id, 'Please make a choice between 0-%s' % len(self.bl_search_list))
                 else:
                     self.send_private_msg(self.active_user.id, 'The ban search is empty.')
 
@@ -1485,8 +1484,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
             _user.nick, _user.id, self.joind_count))
 
-        threading.Thread(target=self.welcome, args=(_user.id,)).start()
-
+        # TC allows X msg per owner and mod account
+        if self.joind_count < 3:
+            threading.Thread(target=self.welcome, args=(_user.id,)).start()
 
     @staticmethod
     def _removeNonAscii(s):
