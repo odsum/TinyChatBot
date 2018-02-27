@@ -8,14 +8,13 @@ import logging
 import random
 import threading
 import time
-import Queue
 
 import pinylib
 from apis import youtube, other, locals_
 from page import privacy
 from util import tracklist, botdb
 
-__version__ = '2.2.5'
+__version__ = '2.2.7'
 
 log = logging.getLogger(__name__)
 
@@ -37,14 +36,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
     lockdown = False
 
     dj_mode = 0
+
     djs = []
+    kick_pool = []
+    ban_pool = []
 
     msgs = {}
     tmp_announcement = None
-
-    work = Queue.Queue()
-    results = Queue.Queue()
-
 
     @property
     def config_path(self):
@@ -81,6 +79,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         self.db_setup()
 
+        threading.Timer(30.0, self.worker_kicks).start()
+        threading.Timer(60.0, self.worker_bans).start()
+
     def on_join(self, join_info):
         """
         Received when a user joins the room.
@@ -96,9 +97,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if _user.nick in self.buddy_db.nick_bans:
             if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                self.send_kick_msg(_user.id)
+                self.process_kick(_user.id)
             else:
-                self.send_ban_msg(_user.id)
+                self.process_ban(_user.id)
                 self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % _user.nick)
 
         threading.Thread(target=self.user_register, args=(_user,)).start()
@@ -119,9 +120,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if uid != self.client_id:
             if _user.nick in self.buddy_db.nick_bans:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                    self.send_kick_msg(uid)
+                    self.process_kick(uid)
                 else:
-                    self.send_ban_msg(uid)
+                    self.process_ban(uid)
 
                 self.console_write(pinylib.COLOR['bright_cyan'], '[User] %s:%s Changed nick to: %s' %
                                    (old_nick, uid, nick))
@@ -203,6 +204,47 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_private_msg(self.active_user.id, '\n'.join(info))
 
     # == Bot Police ==
+    # playing with ideas of handling spam bots
+
+
+    def worker_kicks(self):
+        limit = 0
+        for k in self.kick_pool:
+            if limit > 5:
+                pass
+            else:
+                time.sleep(1.2)
+                self.send_kick_msg(k)
+                self.kick_pool.remove(k)
+                limit += 1
+        threading.Timer(60.0, self.worker_kicks).start()
+
+    def worker_bans(self):
+        limit = 0
+        for b in self.ban_pool:
+            if limit > 5:
+                pass
+            else:
+                time.sleep(1.5)
+                self.send_ban_msg(b)
+                self.ban_pool.remove(b)
+                limit += 1
+        threading.Timer(120.0, self.worker_bans).start()
+
+    def on_quit(self, uid):
+        if uid in self.kick_pool:
+            self.kick_pool.remove(uid)
+
+        if uid in self.ban_pool:
+            self.ban_pool.remove(uid)
+
+    def process_kick(self, id):
+        if id not in self.kick_pool:
+            self.kick_pool.append(id)
+
+    def process_ban(self, id):
+        if id not in self.ban_pool:
+            self.ban_pool.append(id)
 
     def do_kick(self, user_name):
         """ 
@@ -224,7 +266,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         for i, user in enumerate(_users):
                             if user.nick != self.nickname and user.user_level > self.active_user.user_level:
                                 if i <= pinylib.CONFIG.B_MAX_MATCH_BANS - 1:
-                                    self.send_kick_msg(user.id)
+                                    self.process_kick(user.id)
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
@@ -255,7 +297,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         for i, user in enumerate(_users):
                             if user.nick != self.nickname and user.user_level > self.active_user.user_level:
                                 if i <= pinylib.CONFIG.B_MAX_MATCH_BANS - 1:
-                                    self.send_ban_msg(user.id)
+                                    self.process_ban(user.id)
                 else:
                     _user = self.users.search_by_nick(user_name)
                     if _user is None:
@@ -264,7 +306,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         self.send_chat_msg(
                             'i dont wanna be a part of ya problems..')
                     else:
-                        self.send_ban_msg(_user.id)
+                        self.send_Ban_msg(_user.id)
 
     def do_banlist_search(self, user_name):
         """
@@ -685,21 +727,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :type msg: str
         """
         prefix = pinylib.CONFIG.B_PREFIX
-        spam_score = 0
 
         if msg.startswith(prefix):
             self.cmd_handler(msg)
 
         else:
             if self.active_user.user_level > 4:
-                t = threading.Thread(target=self.check_msg, args=(self.work, self.results, msg))
-                t.daemon = True
-                t.start()
-                self.work.put(1)
-                self.work.join()
-                spam_score = self.results.get()
+                threading.Thread(target=self.check_msg, args=(msg,)).start()
 
-            self.console_write(pinylib.COLOR['white'], self.active_user.nick + ': ' + msg + ' {spam:' + str(spam_score) + '}')
+            self.console_write(pinylib.COLOR['white'], self.active_user.nick + ': ' + msg)
             self.active_user.last_msg = msg
 
     def private_message_handler(self, private_msg):
@@ -1384,9 +1420,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if self.buddy_db.find_db_account_bans(_user.account) and self.is_client_mod:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                    self.send_kick_msg(_user.id)
+                    self.process_kick(_user.id)
                 else:
-                    self.send_ban_msg(_user.id)
+                    self.process_ban(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % _user.account)
         else:
             _user.user_level = 7  # guest
@@ -1394,12 +1430,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if not pinylib.CONFIG.B_ALLOW_GUESTS:
                 if _user.user_level == 7:
-                    self.send_ban_msg(_user.id)
+                    self.process_ban(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % _user.nick)
 
             if _user.is_lurker and not pinylib.CONFIG.B_ALLOW_LURKERS:
                 if _user.user_level > 5:
-                    self.send_ban_msg(_user.id)
+                    self.process_ban(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no lurkers mode' % _user.nick)
 
         # Lockdown
@@ -1443,7 +1479,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if self.bad_nick > 1:
             time.sleep(1.2)
-            self.send_ban_msg(_user.id)
+            self.process_ban(_user.id)
             self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % _user.nick)
 
         self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
@@ -1451,124 +1487,117 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         threading.Thread(target=self.welcome, args=(_user.id,)).start()
 
+
     @staticmethod
     def _removeNonAscii(s):
         return "".join(i for i in s if ord(i) < 128)
 
-    def check_msg(self, inq, outq, msg):
+    def check_msg(self, msg):
 
         # Spam 2.3 Protection ting
         # odsum(lucy) //shit hasn't been the same as it was before...
         # 02.24.18
 
-        while True:
 
-            inq.get()
+        ban = False
+        spammer = False
+        kick = False
 
-            ban = False
-            spammer = False
-            kick = False
+        msg = self._removeNonAscii(msg)
+        chat_words = msg.split(' ')
+        total = sum(char.isspace() or char == "0" for char in msg)
+        chatr_user = self.active_user.nick
+        chatr_account = self.active_user.account
+        msg_time = int(time.time())
+        totalcopies = 0
+        reason = ''
+        spamlevel = 0
 
-            msg = self._removeNonAscii(msg)
-            chat_words = msg.split(' ')
-            total = sum(char.isspace() or char == "0" for char in msg)
-            chatr_user = self.active_user.nick
-            chatr_account = self.active_user.account
-            msg_time = int(time.time())
-            totalcopies = 0
-            reason = ''
-            spamlevel = 0
+        # each word reviewed and scored
 
-            # each word reviewed and scored
+        for word in chat_words:
+            if word in self.general:
+                pass
+            else:
 
-            for word in chat_words:
-                if word in self.general:
-                    pass
-                else:
+                if not self.isWord(word):
+                    spamlevel += 0.25  # for everyword that isn't english word
 
-                    if not self.isWord(word):
-                        spamlevel += 0.25  # for everyword that isn't english word
+                if not self.isWord(chatr_user):
+                    spamlevel += 0.25  # wack nick
 
-                    if not self.isWord(chatr_user):
-                        spamlevel += 0.25  # wack nick
+                if word.isupper():
+                    spamlevel += 0.125  # Uppercase word
 
-                    if word.isupper():
-                        spamlevel += 0.125  # Uppercase word
+                lword = word.lower()
+                if self.buddy_db.find_db_word_bans(lword):
+                    ban = True
+                    spammer = True
+                    spamlevel += 2
+                    reason = 'Word ban: ' + lword
+                    self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
 
-                    lword = word.lower()
-                    if self.buddy_db.find_db_word_bans(lword):
-                        ban = True
-                        spammer = True
-                        spamlevel += 2
-                        reason = 'Word ban: ' + lword
-                        self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
+        if total > 140:  # if message is larger than 100 characters
+            spamlevel += 0.5
 
-            if total > 140:  # if message is larger than 100 characters
-                spamlevel += 0.5
+        # knownnick = self.buddy_db.find_db_ticket(chatr_user)
+        #
+        # # known spammer from our database.
+        #
+        # if knownnick:
+        #     spamlevel += 0.25
+        #     spammer = True
+        #
+        #     if knownnick['account']:
+        #         spamlevel += 0.25
 
-            knownnick = self.buddy_db.find_db_ticket(chatr_user)
+        for m in self.msgs:
+            if msg == m and m not in self.general:
+                totalcopies += 1
+                oldmsg = self.msgs[msg]
 
-            # known spammer from our database.
+                msgdiff = oldmsg['ts'] - msg_time
 
-            if knownnick:
-                spamlevel += 0.25
-                spammer = True
-
-                if knownnick['account']:
+                if totalcopies > 0:
                     spamlevel += 0.25
 
-            for m in self.msgs:
-                if msg == m and m not in self.general:
-                    totalcopies += 1
-                    oldmsg = self.msgs[msg]
-
-                    msgdiff = oldmsg['ts'] - msg_time
-
-                    if totalcopies > 0:
-                        spamlevel += 0.25
-
-                    if oldmsg['nick'] == chatr_user:
-                        spamlevel += 0.5
-                        spammer = True
-                        kick = True
-
-                    if msgdiff < 2:
-                        spamlevel += 0.25
-
+                if oldmsg['nick'] == chatr_user:
                     spamlevel += 0.5
-                    reason = 'Spam repeat.'
+                    spammer = True
+                    kick = True
 
-            mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time}
+                if msgdiff < 2:
+                    spamlevel += 0.25
 
-            if spamlevel >= 2:
-                self.buddy_db.add_ticket(chatr_account, spamlevel, chatr_user, reason)
-                self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
-                                   (chatr_user, spamlevel))
+                spamlevel += 0.5
+        #        reason = 'Spam repeat.'
 
-            self.msgs.update({'%s' % msg: mpkg})
+        mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time}
 
-            if len(self.msgs) > 4:  # store last 4 messages
-                self.msgs.clear()
+        # if spamlevel >= 2:
+        #     self.buddy_db.add_ticket(chatr_account, spamlevel, chatr_user, reason)
+        #     self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
+        #                        (chatr_user, spamlevel))
 
-            if self.active_user.user_level > 5:
-                if spamlevel > 3:
-                    ban = True
-            if ban:
-                time.sleep(0.7)
-                if self.active_user.user_level == 6:
-                    if spammer:
-                        self.buddy_db.add_bad_account(self.active_user.account)
-                        self.send_ban_msg(self.active_user.id)
+        self.msgs.update({'%s' % msg: mpkg})
 
-                elif len(self.active_user.account) is 0:
-                    if spammer:
-                        self.send_ban_msg(self.active_user.id)
-            if kick:
-                self.send_kick_msg(self.active_user.id)
+        if len(self.msgs) > 4:  # store last 4 messages
+            self.msgs.clear()
 
-            result = spamlevel
-            outq.put(result)
-            inq.task_done()
+        if self.active_user.user_level > 5:
+            if spamlevel > 3:
+                ban = True
+        if ban:
+            time.sleep(0.7)
+            if self.active_user.user_level == 6:
+                if spammer:
+                    self.buddy_db.add_bad_account(self.active_user.account)
+                    self.send_ban_msg(self.active_user.id)
+            elif len(self.active_user.account) is 0:
+                if spammer:
+                    self.send_ban_msg(self.active_user.id)
+        if kick:
+            self.send_kick_msg(self.active_user.id)
 
     @staticmethod
     def isWord(word):
