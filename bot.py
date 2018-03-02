@@ -1,94 +1,25 @@
+# Modified to support multiple rooms 02.22.18
+# odsum - 'it ain't safe, it ain't safe'
+
+import Queue
 import logging
 import threading
-import time
 import tinybot
 
 log = logging.getLogger(__name__)
 
 
-def main():
-    if tinybot.pinylib.CONFIG.ROOM:
-        room_name = tinybot.pinylib.CONFIG.ROOM
-    else:
-        room_name = raw_input('Enter room name: ').strip()
+def buddystart(w, r):
+    while True:
+        w.get()
+        if tinybot.pinylib.CONFIG.ACCOUNT and tinybot.pinylib.CONFIG.PASSWORD:
+            bot = tinybot.TinychatBot(room=r, account=tinybot.pinylib.CONFIG.ACCOUNT,
+                                      password=tinybot.pinylib.CONFIG.PASSWORD)
+        bot.login()
+        bot.console_write(tinybot.pinylib.COLOR['bright_green'], 'Logged in as: %s' % bot.account)
 
-    if tinybot.pinylib.CONFIG.ACCOUNT and tinybot.pinylib.CONFIG.PASSWORD:
-        bot = tinybot.TinychatBot(room=room_name, account=tinybot.pinylib.CONFIG.ACCOUNT,
-                                  password=tinybot.pinylib.CONFIG.PASSWORD)
-    else:
-        bot = tinybot.TinychatBot(room=room_name)
-
-    do_login = raw_input('Login? [enter=no] ')
-    if do_login:
-        is_logged_in = bot.login()
-        while not is_logged_in:
-            bot.account = raw_input('Account: ').strip()
-            bot.password = raw_input('Password: ')
-            if bot.account == '/' or bot.password == '/':
-                main()
-                break
-            elif bot.account == '//' or bot.password == '//':
-                do_login = False
-                break
-            else:
-                is_logged_in = bot.login()
-        if is_logged_in:
-            bot.console_write(tinybot.pinylib.COLOR['bright_green'], 'Logged in as: %s' % bot.account)
-        if not do_login:
-            bot.account = Noneyes
-            bot.password = None
-    if tinybot.pinylib.CONFIG.BOTNICK:
         bot.nickname = tinybot.pinylib.CONFIG.BOTNICK
-    else:
-        bot.nickname = raw_input('Enter nick name: (optional) ').strip()
-
-    threading.Thread(target=bot.connect).start()
-
-    while not bot.is_connected:
-        time.sleep(2)
-
-    while bot.is_connected:
-        chat_msg = raw_input()
-        if chat_msg.startswith('/'):
-            msg_parts = chat_msg.split(' ')
-            cmd = msg_parts[0].lower().strip()
-            if cmd == '/q':
-                bot.disconnect()
-            elif cmd == '/a':
-                if len(bot.users.signed_in) == 0:
-                    print ('No signed in users in the room.')
-                else:
-                    for user in bot.users.signed_in:
-                        print ('%s:%s' % (user.nick, user.account))
-            elif cmd == '/u':
-                for user in bot.users.all:
-                    print ('%s: %s' % (bot.users.all[user].nick, bot.users.all[user].user_level))
-            elif cmd == '/m':
-                if len(bot.users.mods) == 0:
-                    print ('No moderators in the room.')
-                else:
-                    for mod in bot.users.mods:
-                        print (mod.nick)
-            elif cmd == '/n':
-                if len(bot.users.norms) == 0:
-                    print ('No normal users in the room.')
-                else:
-                    for norm in bot.users.norms:
-                        print (norm.nick)
-            elif cmd == '/l':
-                if len(bot.users.lurkers) == 0:
-                    print ('No lurkers in the room.')
-                else:
-                    for lurker in bot.users.lurkers:
-                        print (lurker.nick)
-
-            # FOR DEBUGGING METHODS!
-            elif cmd == '/t':
-                pass
-
-        else:
-            bot.send_chat_msg(chat_msg)
-
+        bot.connect()
 
 if __name__ == '__main__':
     if tinybot.pinylib.CONFIG.DEBUG_TO_FILE:
@@ -96,8 +27,24 @@ if __name__ == '__main__':
         logging.basicConfig(filename=tinybot.pinylib.CONFIG.DEBUG_FILE_NAME,
                             level=tinybot.pinylib.CONFIG.DEBUG_LEVEL,
                             format=formater)
-        log.info('Starting tinybot: %s, pinylib version: %s' % (tinybot.__version__,
+        log.info('Starting BuddyBot: %s, pinylib version: %s' % (tinybot.__version__,
                                                                 tinybot.pinylib.__version__))
     else:
         log.addHandler(logging.NullHandler())
-    main()
+
+    w = Queue.Queue()
+    total = 0
+
+    for r in tinybot.pinylib.CONFIG.ROOMS:
+        t = threading.Thread(target=buddystart, args=(w, r))
+        t.daemon = True
+        t.start()
+        total += 1
+
+    print ('Buddybot %s - odsum' % (tinybot.__version__))
+    print ('Rooms Found: %s ' % (total))
+    print ('')
+
+    for i in xrange(total):
+        w.put(total)
+    w.join()

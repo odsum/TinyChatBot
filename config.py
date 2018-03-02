@@ -3,7 +3,8 @@ ACCOUNT = ''
 # Password for account
 PASSWORD = ''
 BOTNICK = ''
-ROOM = ''
+# Define rooms the bot will manage in a list format : ['room1','room2','room3']
+ROOMS = ['fobcity','room2']
 B_ANNOUNCEMENT = 'Default Room Announcement, thanks for using Buddybot by odsum.  !annoucement <msg> to change.'
 
 # Fallback rtc version.
@@ -31,9 +32,7 @@ B_MAX_MATCH_BANS = 1
 # Public commands enabled.
 B_PUBLIC_CMD = True
 # Greet user when joining.
-B_GREET = True
-# Allow newuser to join the room.
-B_ALLOW_NEWUSERS = True
+B_GREET = False
 # Allow broadcasting.
 B_ALLOW_BROADCASTS = True
 # Allow guests to enter the room.

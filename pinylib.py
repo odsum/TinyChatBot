@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 # Pinylib RTC module, based on the POC by Notnola (https://github.com/notnola/TcRTC)
+# Modified by odsum
+
 
 import json
 import time
@@ -15,7 +17,7 @@ import apis.tinychat
 from page import acc
 from util import file_handler, string_util
 
-__version__ = '1.0.10'
+__version__ = '1.0.10-1'
 
 CONFIG = config
 init(autoreset=True)
@@ -82,9 +84,9 @@ class TinychatRTCClient(object):
         else:
             ts = time.strftime('%I:%M:%S:%p')
         if config.CONSOLE_COLORS:
-            msg = COLOR['white'] + '[' + ts + '] ' + Style.RESET_ALL + color + message
+            msg = COLOR['white'] + '[' + self.room_name + ']' + '[' + ts + '] ' + Style.RESET_ALL + color + message
         else:
-            msg = '[' + ts + '] ' + message
+            msg = '[' + self.room_name + ']' + '[' + ts + '] ' + message
         try:
             print(msg)
         except UnicodeEncodeError as ue:
@@ -139,7 +141,7 @@ class TinychatRTCClient(object):
     def disconnect(self):
         """ Disconnect from the server. """
         self.is_connected = False
-        self._ws.send_close(status=1001, reason='GoingAway')
+        #self._ws.send_close(status=1001, reason='GoingAway')
         self._ws.abort()  # not sure if this is actually needed.
         self._req = 1
         self._ws = None
@@ -283,12 +285,17 @@ class TinychatRTCClient(object):
             self.reconnect()
         elif code == 6:
             self.console_write(COLOR['bright_red'], 'Double account sign in.')
+            time.sleep(30)
+            self.reconnect()
         elif code == 8:
             self.console_write(COLOR['bright_red'], 'Timeout error? %s' % code)
         elif code == 12:
             self.console_write(COLOR['bright_red'], 'You have been kicked from the room.')
+            self.reconnect()
         else:
             self.console_write(COLOR['white'], 'Connection was closed, code: %s' % code)
+            time.sleep(30)
+            self.reconnect()
 
     def on_joined(self, client_info):
         """

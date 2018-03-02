@@ -5,6 +5,15 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 
 ## Updates
 
+2.2.9
+- Multiple Room Support
+    - config.py ROOMS=['room1','room2','etc']
+
+- Spam Protection updates based on testing
+- Bot reconnect to TinyChat after disconnect
+- Spam: Kick/ban flood pool for lockdown mode so bot doesn't flood out 
+
+    
 2.2.5
 - Restored boy.py and pinylib's original files 
 - Added in Nortxort's forgive, unban, banlist search
@@ -20,12 +29,6 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 - Moved all cmds to handled at one place, bot responses mostly in private messages now
 - Nortxort fixes to loading database
 - Added back in APIs: weather, 8ball, etc.
-
-2.2
-- Added in new wrapper class written by Nortxort
-	- Old database files not used, you could write a merge script to import that list to new one
-- Spam messaging re-written (Need testing)
-	- Scoring system to validate messags
 
 ## Features
 
