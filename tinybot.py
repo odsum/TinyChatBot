@@ -14,7 +14,7 @@ from apis import youtube, other, locals_
 from page import privacy
 from util import tracklist, botdb
 
-__version__ = '2.2.9'
+__version__ = '2.2.9.1'
 
 log = logging.getLogger(__name__)
 
@@ -98,9 +98,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if _user.nick in self.buddy_db.nick_bans:
             if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                self.process_kick(_user.id)
+                if self.lockdown:
+                    self.process_kick(_user.id)
+                else:
+                    self.send_kick_msg(_user.id)
             else:
-                self.process_ban(_user.id)
+                if self.lockdown:
+                    self.process_ban(_user.id)
+                else:
+                    self.send_ban_msg(_user.id)
                 self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % _user.nick)
 
         if _user is not None:
@@ -122,9 +128,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if uid != self.client_id:
             if _user.nick in self.buddy_db.nick_bans:
                 if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                    self.process_kick(uid)
+                    if self.lockdown:
+                        self.process_kick(uid)
+                    else:
+                        self.send_kick_msg(uid)
                 else:
-                    self.process_ban(uid)
+                    if self.lockdown:
+                        self.process_ban(uid)
+                    else:
+                        self.send_ban_msg(uid)
 
                 self.console_write(pinylib.COLOR['bright_cyan'], '[User] %s:%s Changed nick to: %s' %
                                    (old_nick, uid, nick))
@@ -377,7 +389,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     def on_pending_moderation(self, pending):
         _user = self.users.search(pending['handle'])
         if _user is not None:
-            if _user.user_level < 6:
+            if _user.user_level < 5:
                 self.send_cam_approve_msg(_user.id)
             else:
                 _user.is_waiting = True
@@ -1355,8 +1367,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 pass
             else:
                 time.sleep(1.5)
-                self.send_kick_msg(k)
                 self.kick_pool.remove(k)
+                self.send_kick_msg(k)
                 limit += 1
         threading.Timer(15.0, self.worker_kicks).start()
 
@@ -1367,8 +1379,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 pass
             else:
                 time.sleep(2.0)
-                self.send_ban_msg(b)
                 self.ban_pool.remove(b)
+                self.send_ban_msg(b)
                 limit += 1
         threading.Timer(30.0, self.worker_bans).start()
 
@@ -1427,23 +1439,29 @@ class TinychatBot(pinylib.TinychatRTCClient):
                                    '[User] Not verified %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
             if self.buddy_db.find_db_account_bans(_user.account) and self.is_client_mod:
-                if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                    self.process_kick(_user.id)
+                if self.lockdown:
+                    self.process_ban(_user.id)
                 else:
                     self.process_ban(_user.id)
-                    self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % _user.account)
+                self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % _user.account)
         else:
             _user.user_level = 7  # guest
             self.console_write(pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
 
             if not pinylib.CONFIG.B_ALLOW_GUESTS:
                 if _user.user_level == 7:
-                    self.process_ban(_user.id)
+                    if self.lockdown:
+                        self.process_ban(_user.id)
+                    else:
+                        self.send_ban_msg(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % _user.nick)
 
             if _user.is_lurker and not pinylib.CONFIG.B_ALLOW_LURKERS:
                 if _user.user_level > 5:
-                    self.process_ban(_user.id)
+                    if self.lockdown:
+                        self.process_ban(_user.id)
+                    else:
+                        self.send_ban_msg(_user.id)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no lurkers mode' % _user.nick)
 
         # Lockdown
@@ -1476,7 +1494,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if self.bad_nick > 1:
             time.sleep(1.2)
-            self.process_ban(_user.id)
+            if self.lockdown:
+                self.process_ban(_user.id)
+            else:
+                self.send_ban_msg(_user.id)
             self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % _user.nick)
 
         self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
@@ -1707,7 +1728,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     time.sleep(2.0)
                     self.send_chat_msg('Lockdown - no guests allowed.')
 
-        threading.Timer(200.0, self.check_lockdown).start()
+        threading.Timer(240.0, self.check_lockdown).start()
 
     def do_djmsg(self):
         deejays = ",".join(self.djs)
