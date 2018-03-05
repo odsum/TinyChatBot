@@ -10,6 +10,7 @@ import threading
 import time
 
 import pinylib
+
 from apis import youtube, other, locals_
 from page import privacy
 from util import tracklist, botdb
@@ -28,7 +29,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     joind_time = 0
     joind_count = 0
     bl_search_list = []
-    general = ["hey", "hi","yes","no","yo","sup","ya", "hello"]
+    general = ["hey", "hi","yes","no","yo","sup","ya", "hello", "cheers","tokes"]
     bad_nick = 0
     autoban_time = 0
     autoban_count = 0
@@ -109,8 +110,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_ban_msg(_user.id)
                 self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % _user.nick)
 
-        if _user is not None:
-            threading.Thread(target=self.user_register, args=(_user,)).start()
+        threading.Thread(target=self.user_register, args=(_user,)).start()
 
     def on_nick(self, uid, nick):
         """
@@ -1909,6 +1909,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.send_chat_msg(whois)
 
     # == Just For Fun Command Methods. ==
+
 
     def do_chuck_noris(self):
         """ Shows a chuck norris joke/quote. """
