@@ -14,7 +14,7 @@ from apis import youtube, other, locals_
 from page import privacy
 from util import tracklist, botdb
 
-__version__ = '2.3.2'
+__version__ = '2.3.3'
 
 log = logging.getLogger(__name__)
 
@@ -1464,7 +1464,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if pinylib.CONFIG.B_VEROBOSE:
             _user = self.users.search(uid)
-            self.handle_msg('\n\n %s %s left the room.' % (self.boticon, _user.nick))
+            msg = unicode("𝘭𝘦𝘧𝘵 𝘵𝘩𝘦 𝘳𝘰𝘰𝘮", 'utf-8')
+            self.handle_msg('\n\n %s %s %s' % (self.boticon, _user.nick, msg))
 
         if uid in self.kick_pool:
             self.kick_pool.remove(uid)
@@ -2021,7 +2022,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 level = 2
             if level == "verified":
                 level = 5
-
             if level == "whitelist":
                 level = 5
 
@@ -2197,6 +2197,21 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     # == Additional Features for fun - BuddyBot ==
 
+    @staticmethod
+    def pluralize(text, n, pluralForm=None):
+        if n != 1:
+            if pluralForm is None:
+                text += 's'
+        return text
+
+    @staticmethod
+    def until(start, end):
+        t = int(time.time())
+        d = int(round(float(start + end - t) / 60))
+        if d == 0:
+            d = 1
+        return d
+
     # Voteban 1.0
     # odsum
 
@@ -2208,6 +2223,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     vote_start = 0
     vote_end = 0
+
     vote_mode = False
     voteban = None
     votetype = None
@@ -2239,7 +2255,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 #     self.friends.remove(self.active_user.nick)
                 self.voters.append(self.active_user.nick)
 
-            mins = self.voteuntil()
+            mins = self.until(self.toke_start, self.toke_end)
             _user = self.users.search(self.voteban)
             self.send_chat_msg('Voting to %s %s, you have %s %s to have your say - %svote to %s' % (
                 self.votetype, _user.nick, str(mins), self.pluralize('minute', mins), prefix, self.votetype))
@@ -2247,23 +2263,22 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if self.active_user.user_level < 5:
 
                 parts = cmd_args.split(' ')
-
                 try:
                     action = parts[0].lower().strip()
                 except:
-                    self.send_chat_msg('Please use %svote <cam/ban> <nick>' % prefix)
+                    self.send_chat_msg('Please define action: %svote <cam/ban> <nick>' % prefix)
                     return
                 try:
                     userwho = parts[1].lower().strip()
                 except:
-                    self.send_chat_msg('Please use %svote <cam/ban> <nick>' % prefix)
+                    self.send_chat_msg('Nick is missing:  %svote <cam/ban> <nick>' % prefix)
                     return
                 try:
                     _user = self.users.search_by_nick(userwho)
                     if _user is None:
                         raise Exception()
                 except:
-                    self.send_chat_msg('Please use %svote <cam/ban> <nick>' % prefix)
+                    self.send_chat_msg('User not online:  %svote <cam/ban> <nick>' % prefix)
                     return
 
                 lang = 'Ban'
@@ -2280,20 +2295,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 if action == "ban":
                     kcmd = 1
 
+                if action == "kick":
+                    lang = 'Kick'
+                    kcmd = 1
+
                 if kcmd and not self.vote_mode:
                     _user = self.users.search_by_nick(userwho)
                     self.startvoting(_user.id, action)
-                    mins = self.voteuntil()
+                    mins = self.until(self.vote_start, self.vote_end)
                     self.send_chat_msg(
                         '\n\n Vote %s: %s %s for you to %s %s from this room.  PM me or type in the chat %svote to cast your voice.' % (
                             lang, str(mins), self.pluralize('minute', mins), lang, _user.nick, prefix))
-
-    def voteuntil(self):
-        t = int(time.time())
-        d = int(round(float(self.vote_start + self.vote_end - t) / 60))
-        if d == 0:
-            d = 1
-        return d
 
     def startvoting(self, voteban, votetype):
         self.vote_mode = True
@@ -2311,6 +2323,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def resetvotes(self):
         self.vote_mode = False
+        self.announce = 0
         self.announceCheck = 0
         self.voters[:] = []
         self.friends[:] = []
@@ -2341,9 +2354,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
             #     totalusers = len(self.users.all)
             #     voterz = len(self.voters)
             #     friends = len(self.friends)
-            #     total_votes = int(voterz / totalusers * 100)
-            #     total_friends = int(friends / totalusers * 100)
-            #     total_voters = int(total_friends + total_votes)
+            #     total_votes = float(voterz) / float(totalusers) * 100
+            #     total_friends = float(friends) / float(totalusers) * 100
+            #     total_voters = float(total_friends) + float(total_votes)
             #
             # #   someone fix real democracy above - vars bring back 0 i don't really care. - 30% is real!
             #
@@ -2374,6 +2387,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     elif self.votetype == "ban":
                         self.send_ban_msg(_user.id)
 
+                    elif self.votetype == "kick":
+                        self.send_kick_msg(_user.id)
+
                     self.send_chat_msg('%s was outcasted!' % _user.nick)
                     # self.send_chat_msg('\n\n %s was voted to be banned, %s percent voted to ban, a total of %s of '
                     #                   'users took part in this vote. The people have decided to ban you. '
@@ -2386,28 +2402,18 @@ class TinychatBot(pinylib.TinychatRTCClient):
             # if t > self.announceCheck:
             #     self.announceCheck = t + self.announce
             #
-            #     mins = self.voteuntil()
+            #     mins = self.until(self.vote_start, self.vote_end)
             #     self.send_chat_msg('\n\n Voting to ban %s - To cast your voice, type %svote for yes or %svote No for against.  %s %s left for voting. ' % (_user.nick, prefix, prefix, str(mins), self.pluralize("minute", mins)))
 
     # Tokecountdown from Tunebot
     # Cheers 1.0
     # odsum - sometimes the simple way of looking at things is best for the time being.
 
-    blaze = 0
-    blazeCheck = 0
-
     tokers = []
     toke_start = 0
     toke_end = 0
     toke_mode = False
     toker = None
-
-    @staticmethod
-    def pluralize(text, n, pluralForm=None):
-        if n != 1:
-            if pluralForm is None:
-                text += 's'
-        return text
 
     def tokesession(self, cmd_args):
 
@@ -2419,7 +2425,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             return
 
         if self.toke_mode:
-            mins = self.until()
+            mins = self.until(self.toke_start, self.toke_end)
 
             if self.active_user.nick in self.tokers:
                 self.send_chat_msg(
@@ -2434,26 +2440,26 @@ class TinychatBot(pinylib.TinychatRTCClient):
             except:
                 self.send_chat_msg('Give me a time in minutes, between 1 and 10, until cheers...')
 
-            blaze = 1
+            announce = 1
             self.tokers.append(self.active_user.nick)
-            self.startTokes(cmd_args, blaze)
-            mins = self.until()
+            self.startTokes(cmd_args, announce)
+            mins = self.until(self.toke_start, self.toke_end)
             self.send_chat_msg('\n\n %s %s %s until the cheers.. . type %scheers in the box to still join in!' % (
                 self.cheersicon, str(mins), self.pluralize('minute', mins), prefix))
 
     def newtoker(self):
         self.tokers.append(self.active_user.nick)
-        mins = self.until()
+        mins = self.until(self.toke_start, self.toke_end)
         time.sleep(0.9)
         self.send_chat_msg('\n\n %s %s is down... %s %s left for cheers' % (
             self.cheersicon, self.active_user.nick, str(mins), self.pluralize('minute', mins)))
         return
 
-    def startTokes(self, toke_end, blaze=0):
+    def startTokes(self, toke_end, announce=0):
         self.toke_mode = True
         t = int(time.time())
-        self.blaze = int(blaze) * 60
-        self.blazeCheck = t + self.blaze
+        self.announce = int(announce) * 60
+        self.announceCheck = t + self.announce
         self.toke_start = t
         self.toke_end = int(toke_end) * 60
 
@@ -2463,7 +2469,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def resettokes(self):
         self.toke_mode = False
-        self.blazeCheck = 0
+        self.announce = 0
+        self.announceCheck = 0
         self.tokers[:] = []
         self.toke_start = 0
         self.toker = None
@@ -2512,16 +2519,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.resettokes()
                 break
 
-            if t > self.blazeCheck:
-                self.blazeCheck = t + self.blaze
+            if t > self.announceCheck:
+                self.announceCheck = t + self.announce
 
                 start = int((t - self.toke_start) / 60)
                 self.send_chat_msg('\n\n %s %s called a cheers %s %s ago, %scheers to join in now!' % (
                     self.cheersicon, self.toker, str(start), self.pluralize("minute", start), prefix))
-
-    def until(self):
-        t = int(time.time())
-        d = int(round(float(self.toke_start + self.toke_end - t) / 60))
-        if d == 0:
-            d = 1
-        return d
