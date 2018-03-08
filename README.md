@@ -5,7 +5,7 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 
 ### Updates
 
-####2.3 Current
+####2.3.2 Current
 - !verobose - to enable or disable the bot from showing respones for cmds in chat
 - !allowcam - No one is allowed to cam up
 - !acc - New account manager
@@ -111,7 +111,7 @@ pinylib-rtc requires 4 libraries that are not part of the standard python librar
 
 These can all be installed form a command prompt with pip.
 
-`pip install websocket-client requests colorama beautifulsoup4`
+`pip install websocket-client requests colorama beautifulsoup4 simplejson`
 
 
 ## Run the client
