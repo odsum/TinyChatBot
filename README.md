@@ -16,6 +16,7 @@ Based off Nortxort's Tinychat Bot and Pinylib.
     - ban will ban the user
  
 - !vip - Allow only users with accounts in bot to join the room
+- Custom Users welcome messages, !acc add account verified Welcome Message
 
 2.2.9
 - Multiple Room Support
