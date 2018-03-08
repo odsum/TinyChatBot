@@ -195,6 +195,20 @@ class Users:
                 return self.all[user]
         return None
 
+    def search_by_account(self, account):
+        """
+        Search the user dictionary by account.
+
+        :param account: The accountof the user to search for.
+        :type account: str
+        :return: The User or None if not found.
+        :rtype: User | None
+        """
+        for user in self.all:
+            if self.all[user].account == account:
+                return self.all[user]
+        return None
+
     def search_containing(self, contains):
         """
         Search the user dictionary for nick names matching the search string.

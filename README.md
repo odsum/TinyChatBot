@@ -3,7 +3,19 @@
 
 Based off Nortxort's Tinychat Bot and Pinylib.
 
-## Updates
+### Updates
+
+####2.3 Current
+- !verobose - to enable or disable the bot from showing respones for cmds in chat
+- !allowcam - No one is allowed to cam up
+- !acc - New account manager
+    - !acc camban account reason for cambans
+- !tokes/!cheers mins - Countdown, !tokes or !cheers to join in
+- !vote - !voteban cam/ban account, !vote for yes if there is 5 votes.
+    - cam will close cam
+    - ban will ban the user
+ 
+- !vip - Allow only users with accounts in bot to join the room
 
 2.2.9
 - Multiple Room Support
@@ -13,26 +25,12 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 - Bot reconnect to TinyChat after disconnect
 - Spam: Kick/ban flood pool for lockdown mode so bot doesn't flood out 
 
-    
-2.2.5
-- Restored boy.py and pinylib's original files 
-- Added in Nortxort's forgive, unban, banlist search
 
-2.2.4
-- Clean up tinyboy.py, finally using pyCharm
-- Resorted Pinylib.py and user.py back to default
-- Fixed pickble.py dexists issue with Nortxort's suggestion
-- Added in the concept and idea for multiple bots to bot.py
-
-2.2.2
-- Announcements:  Update your config.py to include B_ANNOUNCEMENT, to set temporary announcements use !announcement <msg>
-- Moved all cmds to handled at one place, bot responses mostly in private messages now
-- Nortxort fixes to loading database
-- Added back in APIs: weather, 8ball, etc.
-
-## Features
+### Features
 
 - Spam Protection
+    - Enable and disable Spam protection
+    -       !spam
 	- On Join flooding
 	- Spam Repeat text
 	- Spam Score System
@@ -41,17 +39,21 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 
 - User System
 	- Verified Accounts can control youtube and auto-cam'ed by bot
-	- !v <account> - verified accounts 
-	- !chatmod <account> - chatmod
-	- !chatadmin <account> - chatadmin - control lockdown, add real mods, and other room settings
+	- !acc account level welcomemessage/reason
+    -       !acc add odsum mod/admin/verified my welcome greeting
+    -       !acc del odsum 
+    -       !acc camban odsum smokes on cam
+    -       !acc ban odsum reason of ban
 
-	7 - guest
-	6 - has account not verified
-	5 - verified user
-	4 - Chatmod
-	3 - Regular Mod
-	2 - Chatadmin
-	1 - Owner/Bot
+    #### Account levels
+    9 - Banned account<br />
+    8 - Camban<br />
+    7 - guest<br />
+    6 - has account not verified<br />
+    5 - verified/whitelist user<br />
+    4 - Chatmod<br />
+    3 - Regular Mod<br />
+    2 - Chatadmin<br />
 
 - Dj Mode
 	- Limits all chatmods and Verified Accounts from using youtube unless a dj is defined.
@@ -62,27 +64,25 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 3.0 
 - Sqlite for database
 - Web interface to Manage Accounts, bot settings
-- Mulitple rooms where the bot can be to manage
  
-2.5 
-- Custom greeting messages per accounts
-- Vote Ban System
-- Clean up forgive, maybe bring in one from Nortxort's TinychatBot
-- Mutliple bots in various rooms
-
 ## Commands
 
 	Verified Accounts:
 	Media Cmds: !yt, !close, !seek, !reset, !spl, !del, !skip, !yts, !rpl, !pause, !play, !pyst
 
 	Chatmods and !mod tmp users:
-	Mod Cmds: !clr, !kick, !ban, !cam, !close, !bada  <account>, !banw <badword>,!rmw <badword>, !rmbad <account>, !badn <nick>, !chatmod, !v, !rmv, !dechatmod
+	Mod Cmds: !clr, !kick, !ban, !cam, !close, !banw <badword>,!rmw <badword>, !badn <nick>, !acc, !+tmod, !-tmod, !verobose, !allowcam, !spam, !vote
 
 	Mods and Admins:
-	Admin Cmds: !lockdown (noguests), !lockup(password enabled), !noguest, !p2t
+	Admin Cmds: !lockdown (noguests), !lockup(password enabled), !noguest, !p2t, !+mod, !-mod
 
-	Other cmds: !urb, !8ball, !flip, !roll, !whoplayed, !now, !status, !chuck, !wea
+	Other cmds: !urb, !8ball, !flip, !roll, !whoplayed, !now, !status, !chuck, !wea, !cheers, !tokes
 
+    Account Management:
+        !acc add odsum mod/admin/verified my welcome greeting
+        !acc del odsum 
+        !acc camban odsum smokes on cam
+        !acc ban odsum reason of ban
 
 ## Pinylib-RTC
 

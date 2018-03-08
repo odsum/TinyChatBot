@@ -2,9 +2,9 @@
 ACCOUNT = ''
 # Password for account
 PASSWORD = ''
-BOTNICK = ''
+BOTNICK = 'BuddyBot'
 # Define rooms the bot will manage in a list format : ['room1','room2','room3']
-ROOMS = ['fobcity','room2']
+ROOMS = ['fobcity']
 B_ANNOUNCEMENT = 'Default Room Announcement, thanks for using Buddybot by odsum.  !annoucement <msg> to change.'
 
 # Fallback rtc version.
@@ -32,7 +32,7 @@ B_MAX_MATCH_BANS = 1
 # Public commands enabled.
 B_PUBLIC_CMD = True
 # Greet user when joining.
-B_GREET = False
+B_GREET = True
 # Allow broadcasting.
 B_ALLOW_BROADCASTS = True
 # Allow guests to enter the room.
@@ -44,3 +44,13 @@ B_ALLOW_GUESTS_NICKS = True
 B_USE_KICK_AS_AUTOBAN = False
 # Forgive auto bans.
 B_FORGIVE_AUTO_BANS = False
+
+# !verobose to disble enable, user joins and quits, kick and bans messages.
+B_VEROBOSE = True
+
+# Only Whitelist/Verified/VIP users +vip (level 5) or greater are allowed in the room.
+B_VIP = False
+
+# Spam Protection Enable and disable spam protection by !spam
+B_SPAMP = True
+
