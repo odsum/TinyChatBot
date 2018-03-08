@@ -4,22 +4,25 @@
 import Queue
 import logging
 import threading
+
 import tinybot
 
 log = logging.getLogger(__name__)
 
 
-def buddystart(w, r):
+def buddystart(qbot, croom):
     while True:
-        w.get()
+
+        qbot.get()
         if tinybot.pinylib.CONFIG.ACCOUNT and tinybot.pinylib.CONFIG.PASSWORD:
-            bot = tinybot.TinychatBot(room=r, account=tinybot.pinylib.CONFIG.ACCOUNT,
+            bot = tinybot.TinychatBot(room=croom, account=tinybot.pinylib.CONFIG.ACCOUNT,
                                       password=tinybot.pinylib.CONFIG.PASSWORD)
         bot.login()
         bot.console_write(tinybot.pinylib.COLOR['bright_green'], 'Logged in as: %s' % bot.account)
 
         bot.nickname = tinybot.pinylib.CONFIG.BOTNICK
         bot.connect()
+
 
 if __name__ == '__main__':
     if tinybot.pinylib.CONFIG.DEBUG_TO_FILE:
@@ -28,23 +31,23 @@ if __name__ == '__main__':
                             level=tinybot.pinylib.CONFIG.DEBUG_LEVEL,
                             format=formater)
         log.info('Starting BuddyBot: %s, pinylib version: %s' % (tinybot.__version__,
-                                                                tinybot.pinylib.__version__))
+                                                                 tinybot.pinylib.__version__))
     else:
         log.addHandler(logging.NullHandler())
 
-    w = Queue.Queue()
+    qbot = Queue.Queue()
     total = 0
 
-    for r in tinybot.pinylib.CONFIG.ROOMS:
-        t = threading.Thread(target=buddystart, args=(w, r))
+    for croom in tinybot.pinylib.CONFIG.ROOMS:
+        t = threading.Thread(target=buddystart, args=(qbot, croom))
         t.daemon = True
         t.start()
         total += 1
 
-    print ('Buddybot %s - odsum' % (tinybot.__version__))
-    print ('Rooms Found: %s ' % (total))
+    print ('Buddybot %s - odsum' % tinybot.__version__)
+    print ('Rooms Found: %s ' % total)
     print ('')
 
     for i in xrange(total):
-        w.put(total)
-    w.join()
+        qbot.put(total)
+    qbot.join()

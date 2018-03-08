@@ -10,18 +10,16 @@ import threading
 import time
 
 import pinylib
-
 from apis import youtube, other, locals_
 from page import privacy
 from util import tracklist, botdb
 
-__version__ = '2.3.1'
+__version__ = '2.3.2'
 
 log = logging.getLogger(__name__)
 
 
 class TinychatBot(pinylib.TinychatRTCClient):
-
     musicicon = unicode("🎶", 'utf-8')
     warningicon = unicode("⚠", 'utf-8')
     notallowedicon = unicode("🚫", 'utf-8')
@@ -37,7 +35,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     boticon = unicode("🤖", 'utf-8')
     cheersicon = unicode("🍻", 'utf-8')
 
-    general = ["hey", "hi","yes","no","yo","sup","ya", "hello", "cheers","tokes"]
+    general = ["hey", "hi", "yes", "no", "yo", "sup", "ya", "hello", "cheers", "tokes"]
 
     privacy_ = None
     timer_thread = None
@@ -78,10 +76,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if not self.buddy_db.has_db_file():
             self.buddy_db.create_db_path()
             self.buddy_db.create_defaults()
-            self.console_write(pinylib.COLOR['green'], '[DB] Created for %s' % (self.room_name))
+            self.console_write(pinylib.COLOR['green'], '[DB] Created for %s' % self.room_name)
 
         self.buddy_db.load()
-        self.console_write(pinylib.COLOR['green'], '[DB] Loaded for %s' % (self.room_name))
+        self.console_write(pinylib.COLOR['green'], '[DB] Loaded for %s' % self.room_name)
 
     def on_joined(self, client_info):
         """
@@ -96,7 +94,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.is_client_owner = client_info['owner']
         client = self.users.add(client_info)
         client.user_level = 2
-        self.console_write(pinylib.COLOR['white'], '[Bot] connected as %s:%s, joining room %s' % (client.nick, client.id, self.room_name))
+        self.console_write(pinylib.COLOR['white'],
+                           '[Bot] connected as %s:%s, joining room %s' % (client.nick, client.id, self.room_name))
 
         threading.Thread(target=self.options).start()
 
@@ -105,7 +104,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         threading.Timer(30.0, self.worker_kicks).start()
         threading.Timer(60.0, self.worker_bans).start()
         threading.Timer(60.0, self.check_lockdown).start()
-
 
     def on_join(self, join_info):
         """
@@ -414,7 +412,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.handle_msg('No user named: %s' % user_name)
         else:
             self.handle_msg('Broadcasting is disabled.')
-
 
     def do_close_broadcast(self, user_name):
         """
@@ -731,7 +728,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if cmd == prefix + 'vote':
             self.votesession(cmd_arg)
 
-
         # == User Management ==
 
         if cmd == prefix + 'acc':  # !acc add <account> level note/msg  or !acc del <account>
@@ -841,10 +837,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 track = self.playlist.track
                 if len(self.playlist.track_list) > 0:
                     self.handle_msg('(%s) %s %s' % (self.playlist.current_index, track.title,
-                                                          self.format_time(track.time)))
+                                                    self.format_time(track.time)))
                 else:
                     self.handle_msg('%s %s' %
-                                          (track.title, self.format_time(track.time)))
+                                    (track.title, self.format_time(track.time)))
             else:
                 self.handle_msg('No track playing.')
 
@@ -1476,13 +1472,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if uid in self.ban_pool:
             self.ban_pool.remove(uid)
 
-    def process_kick(self, id):
-        if id not in self.kick_pool:
-            self.kick_pool.append(id)
+    def process_kick(self, uid):
+        if uid not in self.kick_pool:
+            self.kick_pool.append(uid)
 
-    def process_ban(self, id):
-        if id not in self.ban_pool:
-            self.ban_pool.append(id)
+    def process_ban(self, uid):
+        if uid not in self.ban_pool:
+            self.ban_pool.append(uid)
 
     def user_register(self, _user):
         while True:
@@ -1529,7 +1525,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     else:
                         self.process_ban(_user.id)
                     if pinylib.CONFIG.B_VEROBOSE:
-                        self.handle_msg('%s is an banned account.' % (_user.account))
+                        self.handle_msg('%s is an banned account.' % _user.account)
                     self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % _user.account)
                     break
 
@@ -1542,7 +1538,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 _user.user_level = 7  # guest
                 self.console_write(pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
 
-
             if not pinylib.CONFIG.B_ALLOW_GUESTS:
                 if _user.user_level == 7:
                     if self.lockdown:
@@ -1550,7 +1545,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     else:
                         self.send_ban_msg(_user.id)
                     if pinylib.CONFIG.B_VEROBOSE:
-                        self.handle_msg('%s was banned (No Guests allowed).' % (_user.nick))
+                        self.handle_msg('%s was banned (No Guests allowed).' % _user.nick)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % _user.nick)
                     break
 
@@ -1561,7 +1556,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     else:
                         self.send_ban_msg(_user.id)
                     if pinylib.CONFIG.B_VEROBOSE:
-                         self.handle_msg('%s is banned account, only known accounts allowed in VIP Mode.' % (_user.account))
+                        self.handle_msg(
+                            '%s is banned account, only known accounts allowed in VIP Mode.' % _user.account)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned, VIP mode' % _user.nick)
                     break
 
@@ -1572,7 +1568,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     else:
                         self.send_ban_msg(_user.id)
                     if pinylib.CONFIG.B_VEROBOSE:
-                        self.handle_msg('%s is a lurker, no captcha. No Lurker Mode' % (_user.nick))
+                        self.handle_msg('%s is a lurker, no captcha. No Lurker Mode' % _user.nick)
                     self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no lurkers mode' % _user.nick)
                     break
 
@@ -1612,7 +1608,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_ban_msg(_user.id)
 
                 if pinylib.CONFIG.B_VEROBOSE:
-                    self.handle_msg('%s is banned using a stupid nick' % (_user.nick))
+                    self.handle_msg('%s is banned using a stupid nick' % _user.nick)
 
                 self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % _user.nick)
                 break
@@ -1636,12 +1632,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
                 if pinylib.CONFIG.B_VEROBOSE:
                     self.handle_msg('Lockdown Mode Rest')
+
     @staticmethod
     def _removeNonAscii(s):
         return "".join(i for i in s if ord(i) < 128)
 
     def check_msg(self, msg):
-
 
         # Spam 2.3.1 Protection ting
         # odsum(lucy) //shit hasn't been the same as it was before...
@@ -1660,7 +1656,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             chatr_account = self.active_user.account
             msg_time = int(time.time())
             totalcopies = 0
-            reason = ''
+            #       reason = ''
             spamlevel = 0
 
             # each word reviewed and scored
@@ -1683,7 +1679,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     if self.buddy_db.find_db_word_bans(lword):
                         ban = True
                         spammer = True
-                        reason = 'Word ban: ' + lword
+                        # reason = 'Word ban: ' + lword
                         self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
 
             if pinylib.CONFIG.B_SPAMP:
@@ -1872,7 +1868,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def do_djmsg(self):
         deejays = ",".join(self.djs)
-        self.handle_msg('\n\n %s %s, %s is in DJ mode, current djs: %s' % (self.boticon, self.active_user.nick, self.room_name, deejays))
+        self.handle_msg('\n\n %s %s, %s is in DJ mode, current djs: %s' % (
+            self.boticon, self.active_user.nick, self.room_name, deejays))
 
     def do_dj(self, account):
         _user = self.users.search_by_nick(account)
@@ -1910,12 +1907,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
     def do_help(self):
         """ Posts a link to github readme/wiki or other page about the bot commands. """
 
-        ownr_cmds = ["reboot","kb","p2t", "dir"]
+        ownr_cmds = ["reboot", "kb", "p2t", "dir"]
         admin_cmds = ["+mod", "-mod"]
-        mod_cmds = ["announcement", "lockdown", "lockup", "+tmod", "-tmod", "spam", "vip", "verobose", "acc", "allowcam" ]
-        cmod_cmds = ["clr","kick", "ban", "unb", "sbl", "fg", "cam", "close", "+banwword", "-badword",  "noguest", "greet", "lurkers", "voteban"]
+        mod_cmds = ["announcement", "lockdown", "lockup", "+tmod", "-tmod", "spam", "vip", "verobose", "acc",
+                    "allowcam"]
+        cmod_cmds = ["clr", "kick", "ban", "unb", "sbl", "fg", "cam", "close", "+banwword", "-badword", "noguest",
+                     "greet", "lurkers", "voteban"]
         media_cmds = ["yt", "close", "seek", "reset", "spl", "del", "skip", "yts", "rpl", "pause", "play", "pyst"]
-        public_cmds = ["urb","wea","ip","cn","8ball","roll","flip", "cheers", "tokes"]
+        public_cmds = ["urb", "wea", "ip", "cn", "8ball", "roll", "flip", "cheers", "tokes"]
 
         prefix = pinylib.CONFIG.B_PREFIX
         cmds_av = public_cmds
@@ -1933,14 +1932,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         cmds_av.sort()
         cmds_dump = [prefix + cmd for cmd in cmds_av]
-        sets = zip(*[iter(cmds_dump)] * 8)
+        csets = zip(*[iter(cmds_dump)] * 8)
         self.send_private_msg(self.active_user.id, '\n\n %s Available Commands:' % self.boticon)
 
-        for set in sets:
-            cmds = ", ".join(set)
+        for cset in csets:
+            cmds = ", ".join(cset)
             time.sleep(1.5)
-            self.send_private_msg(self.active_user.id, '%s' % (cmds))
-
+            self.send_private_msg(self.active_user.id, '%s' % cmds)
 
     def welcome(self, uid, greet):
 
@@ -1981,12 +1979,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     elif _user.user_level == 6:
                         if pinylib.CONFIG.B_VEROBOSE:
                             time.sleep(1.0)
-                            self.send_chat_msg('%s %s, welcome to %s - %s' % (random.choice(greetings), _user.nick, self.room_name, self.announcement()))
+                            self.send_chat_msg('%s %s, welcome to %s - %s' % (
+                                random.choice(greetings), _user.nick, self.room_name, self.announcement()))
                             break
                     elif _user.user_level == 7:
                         if pinylib.CONFIG.B_VEROBOSE:
                             time.sleep(1.5)
-                            self.send_chat_msg('%s %s, welcome to %s' % (random.choice(greetings), _user.nick, self.room_name))
+                            self.send_chat_msg(
+                                '%s %s, welcome to %s' % (random.choice(greetings), _user.nick, self.room_name))
                             break
                 break
 
@@ -2001,17 +2001,19 @@ class TinychatBot(pinylib.TinychatRTCClient):
             try:
                 action = parts[0].lower().strip()
             except IndexError:
-                self.handle_msg('add or del? %sacc add <account> <level> <welcomemsg/banreason> or %sacc del <account>' % prefix)
+                self.handle_msg(
+                    'add or del? %sacc add <account> <level> <welcomemsg/banreason> or %sacc del <account>' % prefix)
                 break
             try:
                 account = parts[1].lower().strip()
             except IndexError:
-                self.handle_msg('Account was missing, %sacc add <account> <level> <welcomemsg/banreason> or %sacc del <account>' % prefix)
+                self.handle_msg(
+                    'Account was missing, %sacc add <account> <level> <welcomemsg/banreason> or %sacc del <account>' % prefix)
                 break
             try:
                 level = parts[2].lower().strip()
             except IndexError:
-                level = 5 # default
+                level = 5  # default
 
             if level == "mod":
                 level = 4
@@ -2111,7 +2113,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.handle_msg('Could not find tinychat info for: %s' % account)
                 else:
                     self.handle_msg('ID: %s, \nLast Login: %s' %
-                                          (tc_usr['tinychat_id'], tc_usr['last_active']))
+                                    (tc_usr['tinychat_id'], tc_usr['last_active']))
 
     # == Other API Command Methods. ==
 
@@ -2168,7 +2170,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     # == Just For Fun Command Methods. ==
 
-
     def do_chuck_noris(self):
         """ Shows a chuck norris joke/quote. """
         chuck = other.chuck_norris()
@@ -2209,6 +2210,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     vote_end = 0
     vote_mode = False
     voteban = None
+    votetype = None
 
     def votesession(self, cmd_args):
 
@@ -2236,11 +2238,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 # if self.active_user.nick in self.friends:
                 #     self.friends.remove(self.active_user.nick)
                 self.voters.append(self.active_user.nick)
-            return
 
-        if self.vote_mode:
+            mins = self.voteuntil()
             _user = self.users.search(self.voteban)
-            self.send_chat_msg('Voting to %s %s, you have %s %s to have your say - %svote to %s' % (self.votetype, _user.nick, str(mins), self.pluralize('minute', mins), prefix, self.votetype))
+            self.send_chat_msg('Voting to %s %s, you have %s %s to have your say - %svote to %s' % (
+                self.votetype, _user.nick, str(mins), self.pluralize('minute', mins), prefix, self.votetype))
         else:
             if self.active_user.user_level < 5:
 
@@ -2276,14 +2278,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
                         return
 
                 if action == "ban":
-                   kcmd = 1
+                    kcmd = 1
 
                 if kcmd and not self.vote_mode:
                     _user = self.users.search_by_nick(userwho)
                     self.startvoting(_user.id, action)
                     mins = self.voteuntil()
-                    self.send_chat_msg('\n\n Vote %s: %s %s for you to %s %s from this room.  PM me or type in the chat %svote to cast your voice.' % (lang, str(mins), self.pluralize('minute', mins), lang, _user.nick, prefix))
-
+                    self.send_chat_msg(
+                        '\n\n Vote %s: %s %s for you to %s %s from this room.  PM me or type in the chat %svote to cast your voice.' % (
+                            lang, str(mins), self.pluralize('minute', mins), lang, _user.nick, prefix))
 
     def voteuntil(self):
         t = int(time.time())
@@ -2301,9 +2304,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.vote_start = t
         self.voteban = voteban
         self.vote_end = int(2) * 60  # 2 minutes for ban
-        self.thread = threading.Thread(target=self.vote_count, args=())
-        self.thread.daemon = True
-        self.thread.start()
+
+        thread = threading.Thread(target=self.vote_count, args=())
+        thread.daemon = True
+        thread.start()
 
     def resetvotes(self):
         self.vote_mode = False
@@ -2315,7 +2319,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         return
 
     def vote_count(self):
-        prefix = pinylib.CONFIG.B_PREFIX
+        # prefix = pinylib.CONFIG.B_PREFIX
 
         while True:
             time.sleep(0.3)
@@ -2328,7 +2332,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
             _user = self.users.search(self.voteban)
 
             if _user is None:
-                self.send_chat_msg('awww.. %s left. ' % (_user.nick))
+                self.send_chat_msg('awww.. %s left. ' % _user.nick)
                 self.resetvotes()
                 break
 
@@ -2352,30 +2356,30 @@ class TinychatBot(pinylib.TinychatRTCClient):
             voterz = len(self.voters)
 
             if t > self.vote_start + self.vote_end:
-                self.send_chat_msg('%s ya lucky, no one cared.' % (_user.nick))
+                self.send_chat_msg('%s ya lucky, no one cared.' % _user.nick)
                 self.resetvotes()
                 break
 
             if voterz > 4:
                 if _user is None:
-                    self.send_chat_msg('%s is sneaky.. .' % (_user.nick))
+                    self.send_chat_msg('%s is sneaky.. .' % _user.nick)
                 else:
                     if self.votetype == "cam":
                         if _user.is_broadcasting:
                             self.send_close_user_msg(_user.id)
                             _user.is_broadcasting = False
                         else:
-                            self.send_chat_msg('i dont see %s on cam'  % (_user.nick))
+                            self.send_chat_msg('i dont see %s on cam' % _user.nick)
 
                     elif self.votetype == "ban":
                         self.send_ban_msg(_user.id)
 
-                    self.send_chat_msg('%s was outcasted!' % (_user.nick))
-                    #self.send_chat_msg('\n\n %s was voted to be banned, %s percent voted to ban, a total of %s of '
+                    self.send_chat_msg('%s was outcasted!' % _user.nick)
+                    # self.send_chat_msg('\n\n %s was voted to be banned, %s percent voted to ban, a total of %s of '
                     #                   'users took part in this vote. The people have decided to ban you. '
                     #                   % (_user.nick, total_votes, str(total_voters)))
-            # else:
-            #     self.send_chat_msg('%s, no hard feelings... friends still?'% (_user.nick))
+                # else:
+                #     self.send_chat_msg('%s, no hard feelings... friends still?'% (_user.nick))
                 self.resetvotes()
                 break
 
@@ -2384,8 +2388,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
             #
             #     mins = self.voteuntil()
             #     self.send_chat_msg('\n\n Voting to ban %s - To cast your voice, type %svote for yes or %svote No for against.  %s %s left for voting. ' % (_user.nick, prefix, prefix, str(mins), self.pluralize("minute", mins)))
-
-
 
     # Tokecountdown from Tunebot
     # Cheers 1.0
@@ -2400,7 +2402,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
     toke_mode = False
     toker = None
 
-    def pluralize(self, text, n, pluralForm=None):
+    @staticmethod
+    def pluralize(text, n, pluralForm=None):
         if n != 1:
             if pluralForm is None:
                 text += 's'
@@ -2417,36 +2420,33 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if self.toke_mode:
             mins = self.until()
+
             if self.active_user.nick in self.tokers:
-                self.send_chat_msg('You have already joined, %s %s to cheers...' % (str(mins), self.pluralize('minute', mins)))
+                self.send_chat_msg(
+                    'You have already joined, %s %s to cheers...' % (str(mins), self.pluralize('minute', mins)))
             else:
                 self.newtoker()
-            return
+        else:
+            try:
+                end = int(cmd_args)
+                if not 1 <= end <= 10:
+                    raise Exception()
+            except:
+                self.send_chat_msg('Give me a time in minutes, between 1 and 10, until cheers...')
 
-        if self.active_user.user_level < 6:
-            if self.toke_mode:
-                self.send_chat_msg('Cheers counter is already up and will finish in %s %s type %scheers to join in.' % (str(mins), self.pluralize('minute', mins, prefix)))
-            else:
-                try:
-                    end = int(cmd_args)
-                    if not 1 <= end <= 10:
-                        raise Exception()
-                except:
-                    self.send_chat_msg('Give me a time in minutes, between 1 and 10, until cheers...')
-                    return
-
-        if not self.toke_mode:
             blaze = 1
             self.tokers.append(self.active_user.nick)
             self.startTokes(cmd_args, blaze)
             mins = self.until()
-            self.send_chat_msg('\n\n %s %s %s until the cheers.. . type %scheers in the box to still join in!' % (self.cheersicon, str(mins), self.pluralize('minute', mins), prefix))
+            self.send_chat_msg('\n\n %s %s %s until the cheers.. . type %scheers in the box to still join in!' % (
+                self.cheersicon, str(mins), self.pluralize('minute', mins), prefix))
 
     def newtoker(self):
         self.tokers.append(self.active_user.nick)
         mins = self.until()
         time.sleep(0.9)
-        self.send_chat_msg('\n\n %s %s is down... %s %s left for cheers' % (self.cheersicon, self.active_user.nick, str(mins), self.pluralize('minute', mins)))
+        self.send_chat_msg('\n\n %s %s is down... %s %s left for cheers' % (
+            self.cheersicon, self.active_user.nick, str(mins), self.pluralize('minute', mins)))
         return
 
     def startTokes(self, toke_end, blaze=0):
@@ -2456,9 +2456,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.blazeCheck = t + self.blaze
         self.toke_start = t
         self.toke_end = int(toke_end) * 60
-        self.thread = threading.Thread(target=self.toke_count, args=())
-        self.thread.daemon = True
-        self.thread.start()
+
+        thread = threading.Thread(target=self.toke_count, args=())
+        thread.daemon = True
+        thread.start()
 
     def resettokes(self):
         self.toke_mode = False
@@ -2469,6 +2470,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         return
 
     def toke_count(self):
+        prefix = pinylib.CONFIG.B_PREFIX
         while True:
             time.sleep(0.3)
             t = time.time()
@@ -2496,15 +2498,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
                                 joined += name + ', '
                             j += 1
 
-                    thiscodesucks = 'is' #odsum// ya kids rap that's cool
+                    thiscodesucks = 'is'  # odsum// ya kids rap that's cool
                     if len(self.tokers) > 2:
                         thiscodesucks = 'are'
 
-                    self.send_chat_msg('\n\n %s %s called a cheers %s %s ago and %s %s taking part.. . *CHEERS*'
-                                           % (self.cheersicon, self.toker, start, self.pluralize('minute', start), joined, thiscodesucks))
+                    self.send_chat_msg('\n\n %s %s called a cheers %s %s ago and %s %s taking part.. . *! CHEERS !*'
+                                       % (self.cheersicon, self.toker, start, self.pluralize('minute', start), joined,
+                                          thiscodesucks))
                 else:
-                    self.send_chat_msg('\n\n %s %s, ya called cheers %s %s ago and nobody joined in.. . oh well *CHEERS*'
-                                           % (self.cheersicon, self.toker, start, self.pluralize('minute', start)))
+                    self.send_chat_msg(
+                        '\n\n %s %s, ya called cheers %s %s ago and nobody joined in.. . oh well *CHEERS*'
+                        % (self.cheersicon, self.toker, start, self.pluralize('minute', start)))
                 self.resettokes()
                 break
 
@@ -2512,8 +2516,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.blazeCheck = t + self.blaze
 
                 start = int((t - self.toke_start) / 60)
-                self.send_chat_msg('\n\n %s %s called a cheers %s %s ago... ' % (self.cheersicon, self.toker, str(start), self.pluralize("minute", start)))
-
+                self.send_chat_msg('\n\n %s %s called a cheers %s %s ago, %scheers to join in now!' % (
+                    self.cheersicon, self.toker, str(start), self.pluralize("minute", start), prefix))
 
     def until(self):
         t = int(time.time())
@@ -2521,9 +2525,3 @@ class TinychatBot(pinylib.TinychatRTCClient):
         if d == 0:
             d = 1
         return d
-
-
-
-
-
-

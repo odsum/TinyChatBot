@@ -4,16 +4,16 @@
 
 
 import json
-import time
 import logging
+import time
 import traceback
 
 import websocket
 from colorama import init, Fore, Style
 
+import apis.tinychat
 import config
 import user
-import apis.tinychat
 from page import acc
 from util import file_handler, string_util
 
@@ -141,7 +141,7 @@ class TinychatRTCClient(object):
     def disconnect(self):
         """ Disconnect from the server. """
         self.is_connected = False
-        #self._ws.send_close(status=1001, reason='GoingAway')
+        # self._ws.send_close(status=1001, reason='GoingAway')
         self._ws.abort()  # not sure if this is actually needed.
         self._req = 1
         self._ws = None
@@ -612,7 +612,8 @@ class TinychatRTCClient(object):
         """
         log.debug('captcha key: %s' % key)
         self.console_write(COLOR['bright_red'], 'Captcha required, sending nonsense.')
-        self.send_captcha('03AO6mBfwawYzZZCHMJbU1jLeMhxKeoRuFB9howwUSGQk2BSoEliMsjRHHZ9_suwGzrPHpNI9zHvoZata6sVSEhfaWgSfBPkD-8E2l54EEBmoFPzMJdGq-rBg4gRd1jNw1ZRudZuK3paaG7Qv-bJ8vdBI9qb4NSAUa9lMlnXj4IeDylyuzR6N9nIPvKSZrVdUoqCbp9jwmEpA9rDNGLSVbLFOXWbLa9uX6B8nlD2onYLVsRR0uFdbYlXNn7AYUwiGVynQWY4QVI5g2V0BDfuoNa0LFQrUYoSWc4Q0N_hJYYdKYiGtL7bmNHvBEwMBo16VQzwHam-6Gqnn6QUHovTFAyKdTeFe96c9RYwno')
+        self.send_captcha(
+            '03AO6mBfwawYzZZCHMJbU1jLeMhxKeoRuFB9howwUSGQk2BSoEliMsjRHHZ9_suwGzrPHpNI9zHvoZata6sVSEhfaWgSfBPkD-8E2l54EEBmoFPzMJdGq-rBg4gRd1jNw1ZRudZuK3paaG7Qv-bJ8vdBI9qb4NSAUa9lMlnXj4IeDylyuzR6N9nIPvKSZrVdUoqCbp9jwmEpA9rDNGLSVbLFOXWbLa9uX6B8nlD2onYLVsRR0uFdbYlXNn7AYUwiGVynQWY4QVI5g2V0BDfuoNa0LFQrUYoSWc4Q0N_hJYYdKYiGtL7bmNHvBEwMBo16VQzwHam-6Gqnn6QUHovTFAyKdTeFe96c9RYwno')
 
     def on_yut_playlist(self, playlist_data):  # TODO: Needs more work.
         """
