@@ -11,10 +11,11 @@ import time
 
 import pinylib
 from apis import youtube, other, locals_
+from modules import spam, tokes, voting
 from page import privacy
-from util import tracklist, botdb
+from util import tracklist, botdb, words
 
-__version__ = '2.3.5'
+__version__ = '2.4'
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +54,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
     ban_time = 0
     lockdown = False
     time_join = 0
-    msgs = {}
 
     silent = False
 
@@ -81,6 +81,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.buddy_db.load()
         self.console_write(pinylib.COLOR['green'], '[DB] Loaded for %s' % self.room_name)
 
+    def load_modules(self):
+        self.spamcheck = spam.Spam(self, pinylib.CONFIG)
+        self.tokes = tokes.Tokes(self, pinylib.CONFIG)
+        self.voting = voting.Voting(self, pinylib.CONFIG)
+
     def on_joined(self, client_info):
         """
         Received when the client have joined the room successfully.
@@ -100,6 +105,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         threading.Thread(target=self.options).start()
 
         self.db_setup()
+        self.load_modules()
 
         threading.Timer(30.0, self.worker_kicks).start()
         threading.Timer(60.0, self.worker_bans).start()
@@ -722,13 +728,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
         # == Toke Thing / Voteban==
 
         if cmd == prefix + 'tokes':
-            self.tokesession(cmd_arg)
+            self.tokes.tokesession(cmd_arg)
 
         if cmd == prefix + 'cheers':
-            self.tokesession(cmd_arg)
+            self.tokes.tokesession(cmd_arg)
 
         if cmd == prefix + 'vote':
-            self.votesession(cmd_arg)
+            self.voting.votesession(cmd_arg)
 
         # == User Management ==
 
@@ -748,15 +754,16 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :type msg: str
         """
         prefix = pinylib.CONFIG.B_PREFIX
+        score = 0
 
         if msg.startswith(prefix):
             self.cmd_handler(msg)
 
         else:
             if self.active_user.user_level > 4:
-                threading.Thread(target=self.check_msg, args=(msg,)).start()
+                score = self.spamcheck.check_msg(msg)
 
-            self.console_write(pinylib.COLOR['white'], self.active_user.nick + ': ' + msg)
+            self.console_write(pinylib.COLOR['white'], '(' + str(score) + ') ' + self.active_user.nick + ': ' + msg)
             self.active_user.last_msg = msg
 
     def private_message_handler(self, private_msg):
@@ -1601,7 +1608,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         self.joind_count += 1
 
-        if not self.isWord(_user.nick):
+        if not words.isword(_user.nick):
             self.bad_nick += 1
 
         if self.bad_nick > 1:
@@ -1637,176 +1644,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
                 if pinylib.CONFIG.B_VERBOSE:
                     self.handle_msg('Lockdown Mode Rest')
-
-    @staticmethod
-    def _removeNonAscii(s):
-        return "".join(i for i in s if ord(i) < 128)
-
-    def check_msg(self, msg):
-
-        # Spam 2.3.1 Protection ting
-        # odsum(lucy) //shit hasn't been the same as it was before...
-        # 02.24.18
-
-        ban = False
-        spammer = False
-        kick = False
-
-        msg = self._removeNonAscii(msg)
-        chat_words = msg.split(' ')
-        total = sum(char.isspace() or char == "0" for char in msg)
-        chatr_user = self.active_user.nick
-        chatr_account = self.active_user.account
-        msg_time = int(time.time())
-        totalcopies = 0
-        #       reason = ''
-        spamlevel = 0
-
-        # each word reviewed and scored
-
-        for word in chat_words:
-            if word in self.general:
-                return
-            else:
-                if pinylib.CONFIG.B_SPAMP:
-                    if not self.isWord(word):
-                        spamlevel += 0.25  # for everyword that isn't english word
-
-                    if not self.isWord(chatr_user):
-                        spamlevel += 0.25  # wack nick
-
-                    if word.isupper():
-                        spamlevel += 0.125  # Uppercase word
-
-                lword = word.lower()
-                if self.buddy_db.find_db_word_bans(lword):
-                    ban = True
-                    spammer = True
-                    # reason = 'Word ban: ' + lword
-                    self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word')
-
-        if pinylib.CONFIG.B_SPAMP:
-            if total > 140:  # if message is larger than 100 characters
-                spamlevel += 0.25
-
-            # knownnick = self.buddy_db.find_db_ticket(chatr_user)
-            #
-            # # known spammer from our database.
-            #
-            # if knownnick:
-            #     spamlevel += 0.25
-            #     spammer = True
-            #
-            #     if knownnick['account']:
-            #         spamlevel += 0.25
-
-            for m in self.msgs:
-
-                if msg == m and m not in self.general:
-                    totalcopies += 1
-                    oldmsg = self.msgs[msg]
-                    msgdiff = msg_time - oldmsg['ts']
-
-                    if msgdiff < 4:
-                        spamlevel += 0.25
-
-                    if totalcopies > 0:
-
-                        spamlevel += 0.25
-
-                        if oldmsg['nick'] == chatr_user:
-                            spamlevel += 0.5
-                            spammer = True
-                            kick = True
-                #       reason = 'Spam repeat.'
-
-            mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time}
-
-            # if spamlevel >= 2:
-            #     self.buddy_db.add_ticket(chatr_account, spamlevel, chatr_user, reason)
-            #     self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
-            #                        (chatr_user, spamlevel))
-
-            self.msgs.update({'%s' % msg: mpkg})
-
-            if len(self.msgs) > 4:  # store last 4 messages
-                self.msgs.clear()
-
-            if self.active_user.user_level > 5:
-                if spamlevel > 3:
-                    ban = True
-
-        if ban:
-            time.sleep(0.7)
-            if self.active_user.user_level > 5:
-                if self.active_user.user_level == 6:
-                    if spammer:
-                        self.buddy_db.add_bad_account(self.active_user.account)
-                        if self.lockdown:
-                            self.process_ban(self.active_user.id)
-                        else:
-                            self.send_ban_msg(self.active_user.id)
-                elif len(self.active_user.account) is 0:
-                    if spammer:
-                        if self.lockdown:
-                            self.process_ban(self.active_user.id)
-                        else:
-                            self.send_ban_msg(self.active_user.id)
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg('\n %s %s was banned for spamming.' % (self.boticon, self.active_user.nick))
-                return
-
-        if kick:
-            if self.active_user.user_level > 3:
-                if self.lockdown:
-                    self.process_kick(self.active_user.id)
-                else:
-                    self.send_kick_msg(self.active_user.id)
-
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg('\n %s %s was kicked for spamming.' % (self.boticon, self.active_user.nick))
-                return
-        return
-
-    @staticmethod
-    def isWord(word):
-
-        VOWELS = "aeiou"
-        PHONES = ['sh', 'ch', 'ph', 'sz', 'cz', 'sch', 'rz', 'dz']
-        prevVowel = False
-
-        if word:
-            consecutiveVowels = 0
-            consecutiveConsonents = 0
-            for idx, letter in enumerate(word.lower()):
-                vowel = True if letter in VOWELS else False
-
-                if idx:
-                    prev = word[idx - 1]
-                    if prev in VOWELS:
-                        prevVowel = True
-                    if not vowel and letter == 'y' and not prevVowel:
-                        vowel = True
-
-                if prevVowel != vowel:
-                    consecutiveVowels = 0
-                    consecutiveConsonents = 0
-
-                if vowel:
-                    consecutiveVowels += 1
-                else:
-                    consecutiveConsonents += 1
-
-                if consecutiveVowels >= 3 or consecutiveConsonents > 3:
-                    return False
-
-                if consecutiveConsonents == 3:
-                    subStr = word[idx - 2:idx + 1]
-                    if any(phone in subStr for phone in PHONES):
-                        consecutiveConsonents -= 1
-                        continue
-                    return False
-        return True
 
     def do_lockdown(self, soft):
 
@@ -2196,330 +2033,3 @@ class TinychatBot(pinylib.TinychatRTCClient):
     def do_flip_coin(self):
         """ Flip a coin. """
         self.send_chat_msg('The coin was: %s' % locals_.flip_coin())
-
-    # == Additional Features for fun - BuddyBot ==
-
-    @staticmethod
-    def pluralize(text, n, pluralForm=None):
-        if n != 1:
-            if pluralForm is None:
-                text += 's'
-        return text
-
-    @staticmethod
-    def until(start, end):
-        t = int(time.time())
-        d = int(round(float(start + end - t) / 60))
-        if d == 0:
-            d = 1
-        return d
-
-    # Voteban 1.0
-    # odsum
-
-    announce = 0
-    announceCheck = 0
-
-    voters = []
-    friends = []
-
-    vote_start = 0
-    vote_end = 0
-
-    vote_mode = False
-    voteban = None
-    votetype = None
-
-    def votesession(self, cmd_args):
-
-        prefix = pinylib.CONFIG.B_PREFIX
-        if cmd_args == "!!":
-            self.resetvotes()
-            self.send_chat_msg('Voting has been reset.')
-            return
-
-        if self.vote_mode:
-
-            if cmd_args.lower() == "no":
-                if self.active_user.nick in self.voters:
-                    self.voters.remove(self.active_user.nick)
-
-                if self.active_user.nick in self.friends:
-                    self.send_chat_msg('You have already voted!')
-                    return
-                else:
-                    self.friends.append(self.active_user.nick)
-                    return
-
-            if self.active_user.nick in self.voters:
-                self.send_chat_msg('You have already voted!')
-
-                if self.active_user.nick in self.friends:
-                    self.friends.remove(self.active_user.nick)
-                self.voters.append(self.active_user.nick)
-                return
-        else:
-            if self.active_user.user_level < 5:
-
-                parts = cmd_args.split(' ')
-                try:
-                    action = parts[0].lower().strip()
-                except:
-                    self.send_chat_msg('Please define action: %svote <cam/ban> <nick>' % prefix)
-                    return
-                try:
-                    userwho = parts[1].lower().strip()
-                except:
-                    self.send_chat_msg('Nick is missing:  %svote <cam/ban> <nick>' % prefix)
-                    return
-                try:
-                    _user = self.users.search_by_nick(userwho)
-                    if _user is None:
-                        raise Exception()
-                except:
-                    self.send_chat_msg('User not online:  %svote <cam/ban> <nick>' % prefix)
-                    return
-
-                lang = 'Ban'
-                kcmd = 0
-
-                if action == "cam":
-                    broadcasters = self.users.broadcaster
-                    lang = 'Cam down'
-                    kcmd = 1
-                    if _user not in broadcasters:
-                        self.send_chat_msg('hmmm, %s is not on cam.' % _user.nick)
-                        return
-
-                if action == "ban":
-                    kcmd = 1
-
-                if action == "kick":
-                    lang = 'Kick'
-                    kcmd = 1
-
-                if kcmd and not self.vote_mode:
-                    _user = self.users.search_by_nick(userwho)
-                    self.startvoting(_user.id, action)
-                    mins = self.until(self.vote_start, self.vote_end)
-                    self.send_chat_msg(
-                        '\n Vote %s: %s %s for you to %s %s from this room.  PM me or type in the chat %svote to cast your voice.' % (
-                            lang, str(mins), self.pluralize('minute', mins), lang, _user.nick, prefix))
-
-    def startvoting(self, voteban, votetype):
-        self.vote_mode = True
-        t = int(time.time())
-        self.votetype = votetype
-        self.announce = int(1) * 60  # announce every minute
-        self.announceCheck = t + self.announce
-        self.vote_start = t
-        self.voteban = voteban
-        self.vote_end = int(2) * 60  # 2 minutes for ban
-
-        thread = threading.Thread(target=self.vote_count, args=())
-        thread.daemon = True
-        thread.start()
-
-    def resetvotes(self):
-        self.vote_mode = False
-        self.announce = 0
-        self.announceCheck = 0
-        self.voters[:] = []
-        self.friends[:] = []
-        self.vote_start = 0
-        self.voteban = None
-        return
-
-    def vote_count(self):
-        # prefix = pinylib.CONFIG.B_PREFIX
-
-        while True:
-            time.sleep(0.3)
-            t = time.time()
-
-            if not self.vote_mode:
-                time.sleep(5)
-                break
-
-            _user = self.users.search(self.voteban)
-
-            if _user is None:
-                self.send_chat_msg('awww.. %s left. ' % _user.nick)
-                self.resetvotes()
-                break
-
-            # if t > self.vote_start + self.vote_end:
-            #     votes_required = 30
-            #     totalusers = len(self.users.all)
-            #     voterz = len(self.voters)
-            #     friends = len(self.friends)
-            #     total_votes = float(voterz) / float(totalusers) * 100
-            #     total_friends = float(friends) / float(totalusers) * 100
-            #     total_voters = float(total_friends) + float(total_votes)
-            #
-            # #   someone fix real democracy above - vars bring back 0 i don't really care. - 30% is real!
-            #
-            #     if total_votes > votes_required:
-            #         if total_friends > total_votes:
-            #             self.send_chat_msg('\n %s was saved by the power of democracy this time! %s of users voted to keep %s here.' % (self.voteban, str(total_friends), self.voteban))
-            #             self.resetvotes()
-            #             break
-
-            voterz = len(self.voters)
-
-            if t > self.vote_start + self.vote_end:
-                self.send_chat_msg('%s ya lucky, no one cared.' % _user.nick)
-                self.resetvotes()
-                break
-
-            if voterz > 4:
-                if _user is None:
-                    self.send_chat_msg('%s is sneaky.. .' % _user.nick)
-                else:
-                    if self.votetype == "cam":
-                        if _user.is_broadcasting:
-                            self.send_close_user_msg(_user.id)
-                            _user.is_broadcasting = False
-                        else:
-                            self.send_chat_msg('i dont see %s on cam' % _user.nick)
-
-                    elif self.votetype == "ban":
-                        self.send_ban_msg(_user.id)
-
-                    elif self.votetype == "kick":
-                        self.send_kick_msg(_user.id)
-
-                    self.send_chat_msg('%s was outcasted!' % _user.nick)
-                    # self.send_chat_msg('\n %s was voted to be banned, %s percent voted to ban, a total of %s of '
-                    #                   'users took part in this vote. The people have decided to ban you. '
-                    #                   % (_user.nick, total_votes, str(total_voters)))
-                # else:
-                #     self.send_chat_msg('%s, no hard feelings... friends still?'% (_user.nick))
-                self.resetvotes()
-                break
-
-            # if t > self.announceCheck:
-            #     self.announceCheck = t + self.announce
-            #
-            #     mins = self.until(self.vote_start, self.vote_end)
-            #     self.send_chat_msg('\n Voting to ban %s - To cast your voice, type %svote for yes or %svote No for against.  %s %s left for voting. ' % (_user.nick, prefix, prefix, str(mins), self.pluralize("minute", mins)))
-
-    # Tokecountdown from Tunebot
-    # Cheers 1.0
-    # odsum - sometimes the simple way of looking at things is best for the time being.
-
-    tokers = []
-    toke_start = 0
-    toke_end = 0
-    toke_mode = False
-    toker = None
-
-    def tokesession(self, cmd_args):
-
-        prefix = pinylib.CONFIG.B_PREFIX
-
-        if cmd_args == "!!":
-            self.resettokes()
-            self.send_chat_msg('Cheers has been reset.')
-            return
-
-        if self.toke_mode:
-            mins = self.until(self.toke_start, self.toke_end)
-
-            if self.active_user.nick in self.tokers:
-                self.send_chat_msg(
-                    'You have already joined, %s %s to cheers...' % (str(mins), self.pluralize('minute', mins)))
-            else:
-                self.newtoker()
-        else:
-            try:
-                end = int(cmd_args)
-                if not 1 <= end <= 10:
-                    raise Exception()
-            except:
-                self.send_chat_msg('Give me a time in minutes, between 1 and 10, until cheers...')
-
-            announce = 1
-            self.tokers.append(self.active_user.nick)
-            self.startTokes(end, announce)
-            mins = self.until(self.toke_start, self.toke_end)
-            self.send_chat_msg('\n %s %s %s until the cheers.. . type %scheers in the box to still join in!' % (
-                self.cheersicon, str(mins), self.pluralize('minute', mins), prefix))
-
-    def newtoker(self):
-        self.tokers.append(self.active_user.nick)
-        mins = self.until(self.toke_start, self.toke_end)
-        time.sleep(0.9)
-        self.send_chat_msg('\n %s %s is down... %s %s left for cheers' % (
-            self.cheersicon, self.active_user.nick, str(mins), self.pluralize('minute', mins)))
-        return
-
-    def startTokes(self, end, announce=0):
-        self.toke_mode = True
-        t = int(time.time())
-        self.announce = int(announce) * 60
-        self.announceCheck = t + self.announce
-        self.toke_start = t
-        self.toke_end = int(end) * 60
-        thread = threading.Thread(target=self.toke_count, args=())
-        thread.daemon = True
-        thread.start()
-
-    def resettokes(self):
-        self.toke_mode = False
-        self.announce = 0
-        self.announceCheck = 0
-        self.tokers[:] = []
-        self.toke_start = 0
-        self.toker = None
-        return
-
-    def toke_count(self):
-        prefix = pinylib.CONFIG.B_PREFIX
-        while True:
-            time.sleep(0.3)
-            t = time.time()
-
-            if not self.toke_mode:
-                time.sleep(5)
-                break
-
-            if self.toker is None:
-                self.toker = str(self.tokers[0])
-
-            if t > self.toke_start + self.toke_end:
-                start = int((t - self.toke_start) / 60)
-
-                if len(self.tokers) > 1:
-                    if len(self.tokers) == 2:
-                        joined = self.tokers[1]
-                    else:
-                        joined = ''
-                        j = 0
-                        for name in self.tokers[1:]:
-                            if j == len(self.tokers) - 2:
-                                joined += 'and ' + name
-                            else:
-                                joined += name + ', '
-                            j += 1
-
-                    thiscodesucks = 'is'  # odsum// ya kids rap that's cool
-                    if len(self.tokers) > 2:
-                        thiscodesucks = 'are'
-
-                    self.send_chat_msg('\n %s %s called a cheers %s %s ago and %s %s taking part.. . *! CHEERS !*'
-                                       % (self.cheersicon, self.toker, start, self.pluralize('minute', start), joined,
-                                          thiscodesucks))
-                else:
-                    self.send_chat_msg(
-                        '\n %s %s, ya called cheers %s %s ago and nobody joined in.. . oh well *CHEERS*'
-                        % (self.cheersicon, self.toker, start, self.pluralize('minute', start)))
-                self.resettokes()
-                break
-
-            if t > self.announceCheck:
-                self.announceCheck = t + self.announce
-
-                start = int((t - self.toke_start) / 60)
-                self.send_chat_msg('\n %s %s called a cheers %s %s ago, %scheers to join in now!' % (
-                    self.cheersicon, self.toker, str(start), self.pluralize("minute", start), prefix))

@@ -46,7 +46,7 @@ B_USE_KICK_AS_AUTOBAN = False
 B_FORGIVE_AUTO_BANS = False
 
 # !verobose to disble enable, user joins and quits, kick and bans messages.
-B_VEROBOSE = True
+B_VERBOSE = True
 
 # Only Whitelist/Verified/VIP users +vip (level 5) or greater are allowed in the room.
 B_VIP = False
