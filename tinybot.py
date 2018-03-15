@@ -2461,7 +2461,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.announceCheck = t + self.announce
         self.toke_start = t
         self.toke_end = int(end) * 60
-
         thread = threading.Thread(target=self.toke_count, args=())
         thread.daemon = True
         thread.start()
