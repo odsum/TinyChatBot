@@ -2441,7 +2441,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             announce = 1
             self.tokers.append(self.active_user.nick)
-            self.startTokes(cmd_args, announce)
+            self.startTokes(end, announce)
             mins = self.until(self.toke_start, self.toke_end)
             self.send_chat_msg('\n %s %s %s until the cheers.. . type %scheers in the box to still join in!' % (
                 self.cheersicon, str(mins), self.pluralize('minute', mins), prefix))
@@ -2454,13 +2454,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
             self.cheersicon, self.active_user.nick, str(mins), self.pluralize('minute', mins)))
         return
 
-    def startTokes(self, toke_end, announce=0):
+    def startTokes(self, end, announce=0):
         self.toke_mode = True
         t = int(time.time())
         self.announce = int(announce) * 60
         self.announceCheck = t + self.announce
         self.toke_start = t
-        self.toke_end = int(toke_end) * 60
+        self.toke_end = int(end) * 60
 
         thread = threading.Thread(target=self.toke_count, args=())
         thread.daemon = True
