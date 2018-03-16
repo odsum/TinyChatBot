@@ -5,17 +5,16 @@ Based off Tinybot by Nortxort (https://github.com/nortxort/tinybot-rtc)
 """
 
 import logging
-import random
 import threading
 import time
 
 import pinylib
 from apis import youtube, other, locals_
-from modules import spam, tokes, voting
+from modules import register, welcome, spam, tokes, voting
 from page import privacy
-from util import tracklist, botdb, words
+from util import tracklist, botdb
 
-__version__ = '2.4'
+__version__ = '2.4.2'
 
 log = logging.getLogger(__name__)
 
@@ -36,8 +35,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
     boticon = unicode("🤖", 'utf-8')
     cheersicon = unicode("🍻", 'utf-8')
 
-    general = ["hey", "hi", "yes", "no", "yo", "sup", "ya", "hello", "cheers", "tokes"]
-
     privacy_ = None
     timer_thread = None
 
@@ -46,17 +43,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
     is_search_list_yt_playlist = False
     bl_search_list = []
 
-    bad_nick = 0
-    joind_time = 0
-    joind_count = 0
-    autoban_time = 0
-    autoban_count = 0
-    ban_time = 0
-    lockdown = False
-    time_join = 0
-
-    silent = False
-
     dj_mode = 0
     djs = []
 
@@ -64,6 +50,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     ban_pool = []
 
     tmp_announcement = None
+
 
     @property
     def config_path(self):
@@ -109,7 +96,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         threading.Timer(30.0, self.worker_kicks).start()
         threading.Timer(60.0, self.worker_bans).start()
-        threading.Timer(60.0, self.check_lockdown).start()
 
     def on_join(self, join_info):
         """
@@ -119,14 +105,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :type join_info: dict
         """
 
-        self.time_join = time.time()
+        time_join = time.time()
 
         log.info('user join info: %s' % join_info)
         _user = self.users.add(join_info)
 
         if _user.nick in self.buddy_db.nick_bans:
             if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                if self.lockdown:
+                if self.spamcheck.lockdown:
                     self.process_kick(_user.id)
                 else:
                     if pinylib.CONFIG.B_VERBOSE:
@@ -134,7 +120,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_kick_msg(_user.id)
                     return
             else:
-                if self.lockdown:
+                if self.spamcheck.lockdown:
                     self.process_ban(_user.id)
                 else:
                     self.send_ban_msg(_user.id)
@@ -143,7 +129,22 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % _user.nick)
                 return
 
-        threading.Thread(target=self.user_register, args=(_user,)).start()
+        if pinylib.CONFIG.B_SPAMP:
+            lockdowncheck = self.spamcheck.lockdown_onjoin(_user, time_join)
+
+            if not lockdowncheck:
+                self.spamcheck.check_lockdown()
+
+            if self.spamcheck.lockdown:
+                return
+
+        self.usr_registration = register.Registration(self, pinylib.CONFIG)
+        is_registered = self.usr_registration.user_register(_user)
+
+        if is_registered and self.spamcheck.joind_count < 4:
+            usr_welcome = welcome.Welcome(self, pinylib.CONFIG)
+            usr_welcome.welcome(_user.id, self.usr_registration.greet)
+
 
     def on_nick(self, uid, nick):
         """
@@ -160,12 +161,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if _user.nick in self.buddy_db.nick_bans:
             if pinylib.CONFIG.B_USE_KICK_AS_AUTOBAN:
-                if self.lockdown:
+                if self.spamcheck.lockdown:
                     self.process_kick(uid)
                 else:
                     self.send_kick_msg(uid)
             else:
-                if self.lockdown:
+                if self.spamcheck.lockdown:
                     self.process_ban(uid)
                 else:
                     self.send_ban_msg(uid)
@@ -497,11 +498,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.do_kick_as_ban(0)
 
             if cmd == prefix + 'lockdown':
-                self.do_lockdown(1)
+                self.spamcheck.do_lockdown(1)
 
             if self.is_client_owner:
                 if cmd == prefix + 'lockup':
-                    self.do_lockdown(0)
+                    self.spamcheck.do_lockdown(0)
 
             if cmd == prefix + 'announcement':
                 self.do_announcement(cmd_arg)
@@ -584,11 +585,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
         # == Known accounts only ==
 
         if _user.user_level < 6:
-
             canplay = 1
 
             if self.dj_mode:
-
                 canplay = 0
 
                 if _user.account in self.djs:
@@ -1427,14 +1426,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     # == BuddyBot Additions ==
     # odsum.2018
-    # User Management On_Join Registration
-    # On-Join Flood Lockdown
-    # Spam Protection in messaging
     # DJ Mode
     # Kick/Ban Pooling
     # Room Announcement
-
-    # playing with ideas of handling spam bots
 
     def handle_msg(self, msg):
         time.sleep(1.0)
@@ -1489,222 +1483,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
     def process_ban(self, uid):
         if uid not in self.ban_pool:
             self.ban_pool.append(uid)
-
-    def user_register(self, _user):
-
-        time.sleep(0.2)
-        greet = None
-
-        if _user is None:
-            return
-
-        if _user.account:
-
-            buddyusr = self.buddy_db.find_db_user(_user.account)
-            tc_info = pinylib.apis.tinychat.user_info(_user.account)
-
-            if tc_info is not None:
-                _user.tinychat_id = tc_info['tinychat_id']
-                _user.last_login = tc_info['last_active']
-
-            if _user.is_owner:
-                _user.user_level = 2  # account owner
-                self.console_write(pinylib.COLOR['cyan'], '[User] Room Owner %s:%d:%s' %
-                                   (_user.nick, _user.id, _user.account))
-            elif _user.is_mod:
-                _user.user_level = 3  # mod
-                self.console_write(pinylib.COLOR['cyan'], '[User] Moderator %s:%d:%s' %
-                                   (_user.nick, _user.id, _user.account))
-            if buddyusr:
-                _level = buddyusr['level']
-                greet = buddyusr['greet']
-
-                if _level == 4 and not _user.is_mod:
-                    _user.user_level = _level  # chatmod
-
-                if _level == 5 and not _user.is_mod:
-                    _user.user_level = _level  # whitelist
-
-                if _level == 2:  # overwrite mod to chatadmin
-                    _user.user_level = _level
-
-                self.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (
-                    _user.user_level, _user.nick, _user.id, _user.account))
-
-            if self.buddy_db.find_db_account_bans(_user.account) and self.is_client_mod:
-                if self.lockdown:
-                    self.process_ban(_user.id)
-                else:
-                    self.process_ban(_user.id)
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg('%s is an banned account.' % _user.account)
-                self.console_write(pinylib.COLOR['red'], '[Security] Banned: Account %s' % _user.account)
-                return
-
-            if _user.user_level is None:
-                _user.user_level = 6  # account not whitelisted
-                self.console_write(pinylib.COLOR['cyan'],
-                                   '[User] Not Whitelisted %s:%d:%s' % (_user.nick, _user.id, _user.account))
-
-        else:
-            _user.user_level = 7  # guest
-            self.console_write(pinylib.COLOR['cyan'], '[User] Guest %s:%d' % (_user.nick, _user.id))
-
-        if not pinylib.CONFIG.B_ALLOW_GUESTS:
-            if _user.user_level == 7:
-                if self.lockdown:
-                    self.process_ban(_user.id)
-                else:
-                    self.send_ban_msg(_user.id)
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg('%s was banned (No Guests allowed).' % _user.nick)
-                self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no guest mode' % _user.nick)
-                return
-
-        if pinylib.CONFIG.B_VIP:
-            if _user.user_level > 5:
-                if self.lockdown:
-                    self.process_ban(_user.id)
-                else:
-                    self.send_ban_msg(_user.id)
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg(
-                        '%s is banned account, only known accounts allowed in VIP Mode.' % _user.account)
-                self.console_write(pinylib.COLOR['red'], '[Security] %s was banned, VIP mode' % _user.nick)
-                return
-
-        if _user.is_lurker and not pinylib.CONFIG.B_ALLOW_LURKERS:
-            if _user.user_level > 5:
-                if self.lockdown:
-                    self.process_ban(_user.id)
-                else:
-                    self.send_ban_msg(_user.id)
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg('%s is a lurker, no captcha. No Lurker Mode' % _user.nick)
-                self.console_write(pinylib.COLOR['red'], '[Security] %s was banned on no lurkers mode' % _user.nick)
-                return
-
-        # Lockdown
-        # odsum
-
-        maxtime = 10  # Reset check in X seconds
-        maxjoins = 5  # maxjoins in maxtime
-
-        if self.joind_time == 0:
-            self.joind_time = time.time()
-            self.joind_count += 1
-
-        if self.time_join - self.joind_time > maxtime:
-            self.joind_count = 0
-            self.joind_time = 0
-            self.bad_nick = 0
-
-        if self.joind_count > maxjoins:
-            self.autoban_time = self.time_join
-            self.do_lockdown(0)
-            self.console_write(
-                pinylib.COLOR['red'], '[Security] Lockdown started')
-            return
-
-        self.joind_count += 1
-
-        if not words.isword(_user.nick):
-            self.bad_nick += 1
-
-        if self.bad_nick > 1:
-            time.sleep(1.2)
-
-            if self.lockdown:
-                self.process_ban(_user.id)
-            else:
-                self.send_ban_msg(_user.id)
-
-            if pinylib.CONFIG.B_VERBOSE:
-                self.handle_msg('%s is banned using a stupid nick' % _user.nick)
-
-            self.console_write(pinylib.COLOR['red'], '[Security] Randomized Nick Banned: Nicks %s' % _user.nick)
-            return
-
-        self.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
-            _user.nick, _user.id, self.joind_count))
-
-        # TC allows X msg per owner and mod account
-        if self.joind_count < 3:
-            threading.Thread(target=self.welcome, args=(_user.id, greet)).start()
-        return
-
-    def check_lockdown(self):
-        # time_join being latest one? not sure
-        if self.lockdown:
-            if self.time_join - 240 > self.autoban_time:  # reset after X seconds locakdown
-                self.do_lockdown(1)
-                self.autoban_time = 0
-                self.bad_nick = 0
-                self.console_write(
-                    pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg('Lockdown Mode Rest')
-
-    def do_lockdown(self, soft):
-
-        if self.is_client_owner:
-            if soft:
-                password = None
-            else:
-                password = pinylib.string_util.create_random_string(5, 8)
-
-            if not self.privacy_.set_guest_mode():
-                self.privacy_.set_room_password(password)
-                self.lockdown = True
-
-                if soft:
-                    time.sleep(2.0)
-                    self.handle_msg('\n\n %s Lockdown - no guests allowed.' % self.boticon)
-                else:
-                    self.handle_msg('\n\n %s Lockdown - tmp password is: %s' % (self.boticon, password))
-            else:
-                password = None
-                self.privacy_.set_room_password(password)
-                self.lockdown = False
-
-                self.kick_pool[:] = []
-                self.ban_pool[:] = []
-
-                time.sleep(2.0)
-                self.handle_msg('\n\n %s %s is open to the public again.' % (self.boticon, self.room_name))
-        else:
-            if self.lockdown:
-                self.lockdown = False
-                if not pinylib.CONFIG.B_ALLOW_GUESTS:
-                    self.do_guests(1)
-                    self.do_kick_as_ban(1)
-
-                if self.silent and not pinylib.CONFIG.B_VERBOSE:
-                    self.do_verbose(1)
-
-                self.silent = False
-
-                self.kick_pool[:] = []
-                self.ban_pool[:] = []
-
-                time.sleep(2.0)
-                self.handle_msg('\n\n %s %s is open to the public again.' % (self.boticon, self.room_name))
-            else:
-
-                if pinylib.CONFIG.B_VERBOSE:
-                    self.silent = True
-                    self.do_verbose(1)
-
-                if pinylib.CONFIG.B_ALLOW_GUESTS:
-                    self.do_guests(1)
-                    self.do_kick_as_ban(1)
-                    self.lockdown = True
-                    time.sleep(2.0)
-                    self.handle_msg('\n\n %s Lockdown - no guests allowed.' % self.boticon)
-
-        threading.Timer(30.0, self.worker_kicks).start()
-        threading.Timer(60.0, self.worker_bans).start()
-        threading.Timer(240.0, self.check_lockdown).start()
 
     def do_djmsg(self):
         deejays = ",".join(self.djs)
@@ -1780,56 +1558,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
             time.sleep(1.5)
             self.send_private_msg(self.active_user.id, '%s' % cmds)
 
-    def welcome(self, uid, greet):
-
-        while True:
-            time.sleep(0.2)
-            greetings = ["hi", "sup", "yo", "hey", "eh", ]
-            prefix = pinylib.CONFIG.B_PREFIX
-            _user = self.users.search(uid)
-
-            if _user is None:
-                break
-
-            if not pinylib.CONFIG.B_ALLOW_GUESTS:
-                break
-
-            if pinylib.CONFIG.B_GREET and _user is not None:
-
-                if _user.nick.startswith('guest-'):
-                    break
-
-                if greet is not None:
-                    if pinylib.CONFIG.B_VERBOSE:
-                        self.send_chat_msg('[%s] %s' % (_user.nick, greet))
-                        break
-                else:
-                    if _user.user_level < 4:
-                        self.send_private_msg(_user.id, 'You are Mod  - %shelp for cmds' % prefix)
-                        self.send_private_msg(_user.id,
-                                              '\n\n %s %s' % (self.boticon, self.announcement()))
-                        break
-                    elif _user.user_level == 5:
-                        self.send_private_msg(_user.id,
-                                              '%s %s, wb - You have access to the bot here, %shelp for cmds' % (
-                                                  random.choice(greetings), _user.nick, prefix))
-                        self.send_private_msg(_user.id,
-                                              '\n\n %s %s' % (self.boticon, self.announcement()))
-                        break
-                    elif _user.user_level == 6:
-                        if pinylib.CONFIG.B_VERBOSE:
-                            time.sleep(1.0)
-                            self.send_chat_msg('%s %s, welcome to %s - %s' % (
-                                random.choice(greetings), _user.nick, self.room_name, self.announcement()))
-                            break
-                    elif _user.user_level == 7:
-                        if pinylib.CONFIG.B_VERBOSE:
-                            time.sleep(1.5)
-                            self.send_chat_msg(
-                                '%s %s, welcome to %s' % (random.choice(greetings), _user.nick, self.room_name))
-                            break
-                break
-
     def accountmanager(self, cmd_args):
 
         time.sleep(0.2)
@@ -1842,14 +1570,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
         except IndexError:
             self.handle_msg(
                 'add or del? %sacc add <account> <level> <welcomemsg/banreason> or %sacc del <account>' % (
-                prefix, prefix))
+                    prefix, prefix))
             return
         try:
             account = parts[1].lower().strip()
         except IndexError:
             self.handle_msg(
                 'Account was missing, %sacc add <account> <level> <welcomemsg/banreason> or %sacc del <account>' % (
-                prefix, prefix))
+                    prefix, prefix))
             return
         try:
             level = parts[2].lower().strip()

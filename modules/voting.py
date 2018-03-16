@@ -58,16 +58,19 @@ class Voting:
             if self.tinybot.active_user.user_level < 5:
 
                 parts = cmd_args.split(' ')
+
                 try:
                     action = parts[0].lower().strip()
                 except:
                     self.tinybot.send_chat_msg('Please define action: %svote cam/ban nick' % prefix)
                     return
+
                 try:
                     userwho = parts[1].lower().strip()
                 except:
                     self.tinybot.send_chat_msg('Nick is missing:  %svote cam/ban nick' % prefix)
                     return
+
                 try:
                     _user = self.tinybot.users.search_by_nick(userwho)
                     if _user is None:
