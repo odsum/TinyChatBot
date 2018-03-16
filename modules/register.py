@@ -67,7 +67,7 @@ class Registration:
             if tc_info is not None:
                 _user.tinychat_id = tc_info['tinychat_id']
                 _user.last_login = tc_info['last_active']
-                _user.bio = tc_info['biography']
+                self.greet = tc_info['biography']
 
             if _user.is_owner:
                 _user.user_level = 2  # account owner
@@ -77,13 +77,12 @@ class Registration:
                 _user.user_level = 3  # mod
                 self.tinybot.console_write(pinylib.COLOR['cyan'], '[User] Moderator %s:%d:%s' %
                                            (_user.nick, _user.id, _user.account))
+
             if buddyusr:
                 _level = buddyusr['level']
 
                 if buddyusr['greet'] != '':
                     self.greet = buddyusr['greet']
-                else:
-                    self.greet = _user.bio
 
                 if _level == 4 and not _user.is_mod:
                     _user.user_level = _level  # chatmod

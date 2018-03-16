@@ -116,7 +116,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.process_kick(_user.id)
                 else:
                     if pinylib.CONFIG.B_VERBOSE:
-                        self.handle_msg('\n %s %s kicked, random nick.' % (self.boticon, _user.nick))
+                        self.handle_msg('\n %s %s kicked, banned nick.' % (self.boticon, _user.nick))
                     self.send_kick_msg(_user.id)
                     return
             else:
@@ -125,7 +125,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     self.send_ban_msg(_user.id)
                 if pinylib.CONFIG.B_VERBOSE:
-                    self.handle_msg('\n %s %s banned, random nick.' % (self.boticon, _user.nick))
+                    self.handle_msg('\n %s %s banned, banned nick.' % (self.boticon, _user.nick))
                 self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % _user.nick)
                 return
 
