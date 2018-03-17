@@ -1,6 +1,6 @@
-# Spam 2.3.5 Protection ting
+# Spam 2.5 Protection ting
 # odsum(lucy) //shit hasn't been the same as it was before...
-# 03.14.18
+# 03.17.18
 
 import time
 
@@ -31,15 +31,15 @@ class Spam:
         self.joind_count = 0
 
         self.autoban_time = 0
-        self.autoban_count = 0
+
         self.silent = False
         self.ban_time = 0
         self.lockdown = False
 
     def lockdown_onjoin(self, _user, t):
 
-        maxtime = 10  # Reset check in X seconds
-        maxjoins = 5  # maxjoins in maxtime
+        maxtime = 3  # Reset check in X seconds
+        maxjoins = 3  # maxjoins in maxtime
 
         if self.joind_time == 0:
             self.joind_time = t
@@ -51,8 +51,7 @@ class Spam:
         if t - self.joind_time < maxtime and self.joind_count > maxjoins:
             self.autoban_time = t
             self.do_lockdown(0)
-            self.tinybot.console_write(
-                self.tinybot.pinylib.COLOR['red'], '[Security] Lockdown started')
+            self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown started')
             return False
 
         self.joind_count += 1
@@ -64,10 +63,11 @@ class Spam:
 
     def check_lockdown(self):
         if self.lockdown:
+            t = time.time()
             while True:
                 time.sleep(0.2)
 
-                if self.autoban_time > 240:  # 4 minute lockdown
+                if t - self.autoban_time > 240:  # 4 minute lockdown
                     self.autoban_time = 0
                     self.lockdown = False
 
@@ -168,7 +168,6 @@ class Spam:
         chatr_account = self.tinybot.active_user.account
         msg_time = int(time.time())
         totalcopies = 0
-        # reason = ''
 
         # each word reviewed and scored
 
@@ -181,7 +180,7 @@ class Spam:
                         spamlevel += 0.25  # for everyword that isn't english word
 
                     if not words.isword(chatr_user):
-                        spamlevel += 0.25  # wack nick
+                        spamlevel += 0.4  # wack nick
 
                     if word.isupper():
                         spamlevel += 0.125  # Uppercase word
@@ -190,23 +189,10 @@ class Spam:
                 if self.tinybot.buddy_db.find_db_word_bans(lword):
                     ban = True
                     spammer = True
-                    reason = 'Word ban: ' + lword
-                    # self.tinybot.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Banned word.')
 
         if self.config.B_SPAMP:
-            if total > 140:  # if message is larger than 100 characters
+            if total > 90:  # if message is larger than 100 characters
                 spamlevel += 0.25
-
-            # knownnick = self.buddy_db.find_db_ticket(chatr_user)
-            #
-            # # known spammer from our database.
-            #
-            # if knownnick:
-            #     spamlevel += 0.25
-            #     spammer = True
-            #
-            #     if knownnick['account']:
-            #         spamlevel += 0.25
 
             for m in self.msgs:
 
@@ -219,53 +205,47 @@ class Spam:
                         spamlevel += 0.25
 
                     if totalcopies > 0:
+                        spamlevel += 0.3
 
-                        spamlevel += 0.25
+                    if not words.isword(chatr_user):
+                        spamlevel += 1.0
+                        spammer = True
 
                         if oldmsg['nick'] == chatr_user:
                             spamlevel += 0.5
                             spammer = True
                             kick = True
-                        #   reason = 'Spam repeat.'
 
-            mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'ts': msg_time}
+            mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'msg': msg}
 
-            # if spamlevel >= 2:
-            #     self.buddy_db.add_ticket(chatr_account, spamlevel, chatr_user, reason)
-            #     self.console_write(pinylib.COLOR['bright_magenta'], '[Spam] Ticket submitted: Nick: %s Score: %s' %
-            #                        (chatr_user, spamlevel))
+            self.msgs.update({'%s' % msg_time: mpkg})
 
-            self.msgs.update({'%s' % msg: mpkg})
-
-            if len(self.msgs) > 4:  # store last 4 messages
+            if len(self.msgs) > 8:  # store last 4 messages
                 self.msgs.clear()
 
             if self.tinybot.active_user.user_level > 5:
-                if spamlevel > 3:
+                if spamlevel > 2.2:
                     ban = True
         if ban:
             time.sleep(0.7)
+
             if self.tinybot.active_user.user_level > 5:
-                if self.tinybot.active_user.user_level == 6:
-                    if spammer:
-                        self.tinybot.buddy_db.add_bad_account(self.tinybot.active_user.account)
-                        if self.tinybot.lockdown:
-                            self.tinybot.process_ban(self.tinybot.active_user.id)
-                        else:
-                            self.tinybot.send_ban_msg(self.tinybot.active_user.id)
-                elif len(self.tinybot.active_user.account) is 0:
-                    if spammer:
-                        if self.tinybot.lockdown:
-                            self.tinybot.process_ban(self.tinybot.active_user.id)
-                        else:
-                            self.tinybot.end_ban_msg(self.tinybot.active_user.id)
+                if spammer and self.tinybot.active_user.user_level == 6:
+                    self.tinybot.buddy_db.add_bad_account(self.tinybot.active_user.account)
+
+                if self.lockdown:
+                    self.tinybot.process_ban(self.tinybot.active_user.id)
+                else:
+                    self.tinybot.send_ban_msg(self.tinybot.active_user.id)
+
                 if self.config.B_VERBOSE:
                     self.tinybot.handle_msg(
                         '\n %s %s was banned for spamming.' % (self.tinybot.boticon, self.tinybot.active_user.nick))
+            return 10
 
         if kick:
             if self.tinybot.active_user.user_level > 3:
-                if self.tinybot.lockdown:
+                if self.lockdown:
                     self.tinybot.process_kick(self.tinybot.active_user.id)
                 else:
                     self.tinybot.send_kick_msg(self.tinybot.active_user.id)
@@ -273,5 +253,6 @@ class Spam:
                 if self.config.B_VERBOSE:
                     self.tinybot.handle_msg(
                         '\n %s %s was kicked for spamming.' % (self.tinybot.boticon, self.tinybot.active_user.nick))
+            return 10
 
         return spamlevel

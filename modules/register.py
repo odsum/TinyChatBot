@@ -12,7 +12,7 @@ from apis import tinychat
 
 class Registration:
 
-    def __init__(self, tinybot, conf):
+    def __init__(self, tinybot, spamcheck, conf):
         """
         Initialize the Spam class.
 
@@ -24,6 +24,7 @@ class Registration:
         :type conf: config
         """
         self.tinybot = tinybot
+        self.spamcheck = spamcheck
         self.config = conf
         self.lockdown = False
         self.greet = None
@@ -37,7 +38,7 @@ class Registration:
 
             if not self.config.B_ALLOW_GUESTS:
                 if _user.user_level == 7:
-                    if self.tinybot.lockdown:
+                    if self.spamcheck.lockdown:
                         self.tinybot.process_ban(_user.id)
                     else:
                         self.tinybot.send_ban_msg(_user.id)
@@ -49,7 +50,7 @@ class Registration:
 
             if _user.is_lurker and not self.config.B_ALLOW_LURKERS:
                 if _user.user_level > 5:
-                    if self.tinybot.lockdown:
+                    if self.spamcheck.lockdown:
                         self.tinybot.process_ban(_user.id)
                     else:
                         self.tinybot.send_ban_msg(_user.id)
@@ -81,8 +82,9 @@ class Registration:
             if buddyusr:
                 _level = buddyusr['level']
 
-                if buddyusr['greet'] != '':
-                    self.greet = buddyusr['greet']
+                if _level < 6:
+                    if buddyusr['greet'] != '':
+                        self.greet = buddyusr['greet']
 
                 if _level == 4 and not _user.is_mod:
                     _user.user_level = _level  # chatmod
@@ -93,11 +95,13 @@ class Registration:
                 if _level == 2:  # overwrite mod to chatadmin
                     _user.user_level = _level
 
+                _user.user_level = _level
+
                 self.tinybot.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (
                     _user.user_level, _user.nick, _user.id, _user.account))
 
             if self.tinybot.buddy_db.find_db_account_bans(_user.account) and self.tinybot.is_client_mod:
-                if self.tinybot.lockdown:
+                if self.spamcheck.lockdown:
                     self.tinybot.process_ban(_user.id)
                 else:
                     self.tinybot.process_ban(_user.id)
@@ -113,7 +117,7 @@ class Registration:
                                            '[User] Not Whitelisted %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
             if self.config.B_VIP and not buddyusr:
-                if self.tinybot.lockdown:
+                if self.spancheckk.lockdown:
                     self.tinybot.process_ban(_user.id)
                 else:
                     self.tinybot.send_ban_msg(_user.id)

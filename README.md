@@ -5,7 +5,14 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 
 ### Updates
 
-####2.3.2 Current
+### 2.4+
+- !camban - ban nicks from camming up
+- Fixed spam protection, holds against spam bots now
+- fixed other bugs related to global vars talking between modules
+- added welcome, register as modules of their own
+
+
+2.3.2 
 - !verobose - to enable or disable the bot from showing respones for cmds in chat
 - !allowcam - No one is allowed to cam up
 - !acc - New account manager
@@ -72,7 +79,7 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 	Media Cmds: !yt, !close, !seek, !reset, !spl, !del, !skip, !yts, !rpl, !pause, !play, !pyst
 
 	Chatmods and !mod tmp users:
-	Mod Cmds: !clr, !kick, !ban, !cam, !close, !banw <badword>,!rmw <badword>, !badn <nick>, !acc, !+tmod, !-tmod, !verobose, !allowcam, !spam, !vote
+	Mod Cmds: !clr, !camban, !kick, !ban, !cam, !close, !banw <badword>,!rmw <badword>, !badn <nick>, !acc, !+tmod, !-tmod, !verobose, !allowcam, !spam, !vote
 
 	Mods and Admins:
 	Admin Cmds: !lockdown (noguests), !lockup(password enabled), !noguest, !p2t, !+mod, !-mod
