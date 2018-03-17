@@ -38,8 +38,11 @@ class Spam:
 
     def lockdown_onjoin(self, _user, t):
 
-        maxtime = 3  # Reset check in X seconds
-        maxjoins = 3  # maxjoins in maxtime
+        maxtime = 8  # if last join and new join are 8 seconds part, reset
+        maxjoins = 3  # max joins in 8 seconds
+
+        if self.lockdown:
+            return True
 
         if self.joind_time == 0:
             self.joind_time = t
@@ -48,18 +51,18 @@ class Spam:
             self.joind_count = 0
             self.joind_time = 0
 
-        if t - self.joind_time < maxtime and self.joind_count > maxjoins:
+        if t - time.time() < 2 and self.joind_count > maxjoins:
             self.autoban_time = t
             self.do_lockdown(0)
             self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown started')
-            return False
+            return True
 
         self.joind_count += 1
 
         self.tinybot.console_write(pinylib.COLOR['cyan'], '[User] %s:%d joined the room. (%s)' % (
             _user.nick, _user.id, self.joind_count))
 
-        return True
+        return False
 
     def check_lockdown(self):
         if self.lockdown:
