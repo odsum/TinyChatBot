@@ -49,6 +49,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     kick_pool = []
     ban_pool = []
+    worker_kicks_working = False
+    worker_bans_working = False
 
     tmp_announcement = None
 
@@ -97,8 +99,11 @@ class TinychatBot(pinylib.TinychatRTCClient):
         self.db_setup()
         self.load_modules()
 
-        self.worker_kicks()
-        self.worker_bans()
+        if not self.worker_kicks_working:
+            self.worker_kicks()
+
+        if not self.worker_bans_working:
+            self.worker_bans()
 
     def on_join(self, join_info):
         """
@@ -1477,7 +1482,9 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def worker_kicks(self):
         limit = 0
+        self.worker_kicks_working = True
         while True:
+
             time.sleep(0.2)
             for k in self.kick_pool:
                 if limit > 3:
@@ -1489,10 +1496,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_kick_msg(k)
                     limit += 1
             if len(self.kick_pool) == 0:
+                self.worker_kicks_working = False
                 break
 
     def worker_bans(self):
         limit = 0
+        self.worker_bans_working = True
         while True:
             time.sleep(0.2)
             for b in self.ban_pool:
@@ -1505,6 +1514,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.send_ban_msg(b)
                     limit += 1
             if len(self.ban_pool) == 0:
+                self.worker_bans_working = False
                 break
 
     def on_quit(self, uid):
@@ -1524,12 +1534,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
     def process_kick(self, uid):
         if uid not in self.kick_pool:
             self.kick_pool.append(uid)
-        self.worker_kicks()
+        if not self.worker_kicks_working:
+            self.worker_kicks()
 
     def process_ban(self, uid):
         if uid not in self.ban_pool:
             self.ban_pool.append(uid)
-        self.worker_bans()
+        if not self.worker_bans_working:
+            self.worker_bans()
 
     def do_djmsg(self):
         deejays = ",".join(self.djs)

@@ -70,7 +70,7 @@ class Spam:
             while True:
                 time.sleep(0.2)
 
-                if t - self.autoban_time > 240:  # 4 minute lockdown
+                if t - self.autoban_time < 240:  # 4 minute lockdown
                     self.autoban_time = 0
                     self.lockdown = False
 
