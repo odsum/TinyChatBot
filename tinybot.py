@@ -138,18 +138,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             lockdowncheck = self.spamcheck.lockdown_onjoin(_user, time_join)
 
-            if not lockdowncheck:
+            if lockdowncheck:
                 self.spamcheck.check_lockdown()
+            else:
+                self.usr_registration = register.Registration(self, self.spamcheck, pinylib.CONFIG)
+                is_registered = self.usr_registration.user_register(_user)
 
-            if self.spamcheck.lockdown:
-                return
-
-        self.usr_registration = register.Registration(self, self.spamcheck, pinylib.CONFIG)
-        is_registered = self.usr_registration.user_register(_user)
-
-        if is_registered and self.spamcheck.joind_count < 4:
-            usr_welcome = welcome.Welcome(self, pinylib.CONFIG)
-            usr_welcome.welcome(_user.id, self.usr_registration.greet)
+                if is_registered and self.spamcheck.joind_count < 4:
+                    usr_welcome = welcome.Welcome(self, pinylib.CONFIG)
+                    usr_welcome.welcome(_user.id, self.usr_registration.greet)
 
 
     def on_nick(self, uid, nick):
