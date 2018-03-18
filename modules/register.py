@@ -82,6 +82,9 @@ class Registration:
             if buddyusr:
                 _level = buddyusr['level']
 
+                if not _user.is_mod:
+                    _user.user_level = _level
+
                 if _level < 6:
                     if buddyusr['greet'] != '':
                         self.greet = buddyusr['greet']
@@ -94,8 +97,6 @@ class Registration:
 
                 if _level == 2:  # overwrite mod to chatadmin
                     _user.user_level = _level
-
-                _user.user_level = _level
 
                 self.tinybot.console_write(pinylib.COLOR['cyan'], '[User] Found, level(%s)  %s:%d:%s' % (
                     _user.user_level, _user.nick, _user.id, _user.account))

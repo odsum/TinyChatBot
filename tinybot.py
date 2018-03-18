@@ -14,7 +14,7 @@ from modules import register, welcome, spam, tokes, voting
 from page import privacy
 from util import tracklist, botdb
 
-__version__ = '2.4.3'
+__version__ = '2.4.4'
 
 log = logging.getLogger(__name__)
 
@@ -139,19 +139,17 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.console_write(pinylib.COLOR['red'], '[Security] Banned: Nick %s' % _user.nick)
                 return
 
-        if pinylib.CONFIG.B_SPAMP:
+        lockdowncheck = self.spamcheck.lockdown_onjoin(_user, time_join)
 
-            lockdowncheck = self.spamcheck.lockdown_onjoin(_user, time_join)
+        if lockdowncheck:
+            self.spamcheck.check_lockdown()
+        else:
+            self.usr_registration = register.Registration(self, self.spamcheck, pinylib.CONFIG)
+            is_registered = self.usr_registration.user_register(_user)
 
-            if lockdowncheck:
-                self.spamcheck.check_lockdown()
-            else:
-                self.usr_registration = register.Registration(self, self.spamcheck, pinylib.CONFIG)
-                is_registered = self.usr_registration.user_register(_user)
-
-                if is_registered and self.spamcheck.joind_count < 4:
-                    usr_welcome = welcome.Welcome(self, pinylib.CONFIG)
-                    usr_welcome.welcome(_user.id, self.usr_registration.greet)
+            if is_registered and self.spamcheck.joind_count < 4:
+                usr_welcome = welcome.Welcome(self, pinylib.CONFIG)
+                usr_welcome.welcome(_user.id, self.usr_registration.greet)
 
 
     def on_nick(self, uid, nick):
@@ -399,7 +397,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
     def on_publish(self, uid):
         _user = self.users.search(uid)
-        _user.is_broadcasting = True
 
         if pinylib.CONFIG.B_ALLOW_BROADCASTS:
             if _user is not None:
@@ -409,6 +406,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     self.handle_msg('%s is banned from camming up.' % _user.nick)
                     _user.is_broadcasting = False
                     self.send_kick_msg(_user.id)
+            _user.is_broadcasting = True
+
         else:
             self.send_close_user_msg(_user.id)
             self.handle_msg('Broadcating is disabled, allowcam to enable.')
@@ -422,16 +421,19 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :type user_name: str
         """
         if pinylib.CONFIG.B_ALLOW_BROADCASTS:
+
             _user = self.users.search_by_nick(user_name)
+
+            if _user is None:
+                return
+
             if len(user_name) > 0:
                 if _user.user_level == 8 or _user.nick in self.cambans:
-                    self.score = 10
                     self.handle_msg('%s is banned from camming here.' % _user.nick)
-                    self.send_kick_msg(_user.id)
-                else:
-                    if _user.is_waiting:
-                        self.send_cam_approve_msg(_user.id)
-                        _user.is_broadcasting = True
+                    return
+
+                if _user.is_waiting:
+                    self.send_cam_approve_msg(_user.id)
             else:
                 self.handle_msg('No user named: %s' % user_name)
         else:
@@ -449,11 +451,15 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.handle_msg('Mising user name.')
             else:
                 _user = self.users.search_by_nick(user_name)
-                if _user is not None and _user.is_broadcasting:
-                    if _user.user_level != 3 and _user.user_level < self.active_user.user_level:
+                broadcasters = self.users.broadcaster
+
+                if _user in broadcasters:
+
+                    if _user.user_level < self.active_user.user_level:
                         self.send_close_user_msg(_user.id)
+                        _user.is_broadcasting = False
                 else:
-                    self.handle_msg('No user named: %s' % user_name)
+                    self.handle_msg('%s is not broadcasting.' % user_name)
 
     def on_pending_moderation(self, pending):
         _user = self.users.search(pending['handle'])
@@ -467,6 +473,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if _user.user_level < 5:
                 self.send_cam_approve_msg(_user.id)
+                _user.is_broadcasting = True
             else:
                 _user.is_waiting = True
                 self.send_chat_msg('%s is waiting in the greenroom.' % _user.nick)
@@ -521,10 +528,12 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
             if cmd == prefix + 'lockdown':
                 self.spamcheck.do_lockdown(1)
+                self.spamcheck.check_lockdown()
 
             if self.is_client_owner:
                 if cmd == prefix + 'lockup':
                     self.spamcheck.do_lockdown(0)
+                    self.spamcheck.check_lockdown()
 
             if cmd == prefix + 'announcement':
                 self.do_announcement(cmd_arg)
@@ -1474,7 +1483,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     # Room Announcement
 
     def handle_msg(self, msg):
-        time.sleep(1.0)
+        time.sleep(0.6)
         if pinylib.CONFIG.B_VERBOSE:
             self.send_chat_msg(msg)
         else:

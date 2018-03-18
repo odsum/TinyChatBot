@@ -38,7 +38,7 @@ class Spam:
 
     def lockdown_onjoin(self, _user, t):
 
-        maxtime = 8  # if last join and new join are 8 seconds part, reset
+        maxtime = 10  # if last join and new join are 8 seconds part, reset
         maxjoins = 3  # max joins in 8 seconds
 
         if self.lockdown:
@@ -47,14 +47,14 @@ class Spam:
         if self.joind_time == 0:
             self.joind_time = t
 
-        if t - self.joind_time > maxtime:
+        if t - self.joind_time < maxtime:
             self.joind_count = 0
             self.joind_time = 0
+            self.autoban_time = 0
 
-        if t - time.time() < 2 and self.joind_count > maxjoins:
+        if self.joind_count > maxjoins:
             self.autoban_time = t
             self.do_lockdown(0)
-            self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown started')
             return True
 
         self.joind_count += 1
@@ -65,46 +65,42 @@ class Spam:
         return False
 
     def check_lockdown(self):
-        if self.lockdown:
+
+        tlaped = 240
+
+        if self.autoban_time != 0:
+            self.tinybot.console_write(pinylib.COLOR['red'],
+                                       '[Security] Lockdown timer started: ' + format(self.autoban_time))
+        else:
+            self.autoban_time = time.time()
+            tlaped = 3600
+            self.tinybot.console_write(pinylib.COLOR['red'],
+                                       '[Security] Lockdown manually called - 1hr')
+        while True:
+            if not self.lockdown:
+                self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
+                break
+
+            time.sleep(30)
             t = time.time()
-            while True:
-                time.sleep(0.2)
+            if t - self.autoban_time < tlaped:
+                self.autoban_time = 0
+                self.lockdown = False
 
-                if t - self.autoban_time < 240:  # 4 minute lockdown
-                    self.autoban_time = 0
-                    self.lockdown = False
+                self.do_lockdown(1)
 
-                    self.do_lockdown(1)
-
-                    self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
-
-                    if self.config.B_VERBOSE:
-                        self.tinybot.handle_msg('Lockdown Mode Rest')
+                self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown Mode Reset')
+                break
 
     def do_lockdown(self, soft):
+
+        if not soft:
+            password = self.tinybot.pinylib.string_util.create_random_string(5, 8)
+        else:
+            password = None
+
         if self.tinybot.is_client_owner:
-
             if self.lockdown:
-                if not soft:
-                    password = self.tinybot.pinylib.string_util.create_random_string(5, 8)
-                    self.tinybot.privacy_.set_room_password(password)
-
-                if not self.tinybot.privacy_.set_guest_mode():
-                    self.account_mode = False
-                    self.tinybot.privacy_.set_guest_mode()
-                else:
-                    self.account_mode = True
-
-                self.lockdown = True
-
-                if soft:
-                    self.tinybot.handle_msg('\n %s Lockdown - no guests allowed.' % self.tinybot.boticon)
-                else:
-                    self.tinybot.handle_msg('\n %s Lockdown - tmp password is: %s' % (self.tinybot.boticon, password))
-
-            else:
-
-                password = None
                 self.tinybot.privacy_.set_room_password(password)
 
                 if not self.account_mode:
@@ -119,11 +115,25 @@ class Spam:
                 time.sleep(2.0)
                 self.tinybot.handle_msg(
                     '\n %s %s is open to the public again.' % (self.tinybot.boticon, self.tinybot.room_name))
+            else:
 
+                if not self.tinybot.privacy_.set_guest_mode():
+                    self.account_mode = False
+                    self.tinybot.privacy_.set_guest_mode()
+                else:
+                    self.account_mode = True
+
+                self.lockdown = True
+
+                if soft:
+                    self.tinybot.handle_msg('\n %s Lockdown - no guests allowed.' % self.tinybot.boticon)
+                else:
+                    self.tinybot.handle_msg('\n %s Lockdown - tmp password is: %s' % (self.tinybot.boticon, password))
+
+                self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown started')
         else:
 
             if self.lockdown:
-
                 if not self.config.B_ALLOW_GUESTS:
                     self.tinybot.do_guests(1)
 
@@ -138,6 +148,10 @@ class Spam:
                 self.tinybot.ban_pool[:] = []
 
                 self.lockdown = False
+                self.joind_count = 0
+                self.joind_time = 0
+                self.autoban_time = 0
+                self.check_lockdown()
 
                 time.sleep(2.0)
                 self.tinybot.handle_msg(
@@ -157,6 +171,7 @@ class Spam:
                 self.lockdown = True
                 time.sleep(2.0)
                 self.tinybot.handle_msg('\n %s Lockdown - no guests allowed.' % self.tinybot.boticon)
+                self.tinybot.console_write(pinylib.COLOR['red'], '[Security] Lockdown started')
 
     def check_msg(self, msg):
 
@@ -207,17 +222,20 @@ class Spam:
                     if msgdiff < 4:
                         spamlevel += 0.25
 
+                    if not words.isword(chatr_user):
+                        spamlevel += 0.7
+                        spammer = True
+
                     if totalcopies > 0:
                         spamlevel += 0.3
 
-                    if not words.isword(chatr_user):
-                        spamlevel += 1.0
-                        spammer = True
-
                         if oldmsg['nick'] == chatr_user:
-                            spamlevel += 0.5
+                            spamlevel += 1.0
                             spammer = True
-                            kick = True
+
+                    if totalcopies > 2:
+                        self.autoban_time = time.time()
+                        self.do_lockdown(1)
 
             mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'msg': msg}
 
@@ -228,6 +246,9 @@ class Spam:
 
             if self.tinybot.active_user.user_level > 5:
                 if spamlevel > 2.2:
+                    kick = True
+
+                if spamlevel > 3:
                     ban = True
         if ban:
             time.sleep(0.7)
