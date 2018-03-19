@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 
 
 class TinychatBot(pinylib.TinychatRTCClient):
+
     musicicon = unicode("🎶", 'utf-8')
     warningicon = unicode("⚠", 'utf-8')
     notallowedicon = unicode("🚫", 'utf-8')
@@ -39,6 +40,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
     timer_thread = None
 
     playlist = tracklist.PlayList()
+
     search_list = []
     is_search_list_yt_playlist = False
     bl_search_list = []
@@ -61,7 +63,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         return pinylib.CONFIG.CONFIG_PATH + self.room_name + '/'
 
     def db_setup(self):
-
         self.buddy_db = botdb.DataBase('users', self.config_path)
         if not self.buddy_db.has_db_file():
             self.buddy_db.create_db_path()
@@ -112,7 +113,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
         :param join_info: This contains user information such as role, account and so on.
         :type join_info: dict
         """
-
         time_join = time.time()
 
         log.info('user join info: %s' % join_info)
@@ -150,7 +150,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if is_registered and self.spamcheck.joind_count < 4:
                 usr_welcome = welcome.Welcome(self, pinylib.CONFIG)
                 usr_welcome.welcome(_user.id, self.usr_registration.greet)
-
 
     def on_nick(self, uid, nick):
         """
@@ -809,6 +808,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
         else:
             if self.active_user.user_level > 4:
                 if self.score != 10:
+                    self.score = 0
                     self.score = self.spamcheck.check_msg(msg)
                 else:
                     self.score = 0
@@ -1497,10 +1497,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
             time.sleep(0.2)
             for k in self.kick_pool:
                 if limit > 3:
-                    time.sleep(0.5)
+                    time.sleep(2)
                     limit = 0
                 else:
-                    time.sleep(0.7)
+                    time.sleep(0.8)
                     self.kick_pool.remove(k)
                     self.send_kick_msg(k)
                     limit += 1
@@ -1515,10 +1515,10 @@ class TinychatBot(pinylib.TinychatRTCClient):
             time.sleep(0.2)
             for b in self.ban_pool:
                 if limit > 3:
-                    time.sleep(0.5)
+                    time.sleep(3)
                     limit = 0
                 else:
-                    time.sleep(0.4)
+                    time.sleep(0.8)
                     self.ban_pool.remove(b)
                     self.send_ban_msg(b)
                     limit += 1

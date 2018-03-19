@@ -197,9 +197,6 @@ class Spam:
                     if not words.isword(word):
                         spamlevel += 0.25  # for everyword that isn't english word
 
-                    if not words.isword(chatr_user):
-                        spamlevel += 0.4  # wack nick
-
                     if word.isupper():
                         spamlevel += 0.125  # Uppercase word
 
@@ -233,9 +230,10 @@ class Spam:
                             spamlevel += 1.0
                             spammer = True
 
-                    if totalcopies > 2:
+                    if totalcopies > 3:
                         self.autoban_time = time.time()
                         self.do_lockdown(1)
+                        ban = True
 
             mpkg = {'score': spamlevel, 'account': chatr_account, 'nick': chatr_user, 'msg': msg}
 
@@ -245,10 +243,10 @@ class Spam:
                 self.msgs.clear()
 
             if self.tinybot.active_user.user_level > 5:
-                if spamlevel > 2.2:
+                if spamlevel > 2.3:
                     kick = True
 
-                if spamlevel > 3:
+                if spamlevel > 3.2:
                     ban = True
         if ban:
             time.sleep(0.7)
