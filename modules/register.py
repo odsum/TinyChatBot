@@ -118,7 +118,7 @@ class Registration:
                                            '[User] Not Whitelisted %s:%d:%s' % (_user.nick, _user.id, _user.account))
 
             if self.config.B_VIP and not buddyusr:
-                if self.spancheck.lockdown:
+                if self.spamcheck.lockdown:
                     self.tinybot.process_ban(_user.id)
                 else:
                     self.tinybot.send_ban_msg(_user.id)
