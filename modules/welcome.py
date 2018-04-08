@@ -13,8 +13,6 @@ class Welcome:
 
         :param tinybot: An instance of TinychatBot.
         :type tinybot: TinychatBot
-        :param user: The User object to check.
-        :type user: User
         :param conf: The config file.
         :type conf: config
         """

@@ -5,7 +5,10 @@ Based off Nortxort's Tinychat Bot and Pinylib.
 
 ### Updates
 
-### 2.4+
+### 2.4.5
+- Spam protection updates - bugs fixed, tested.
+
+2.4
 - !camban - ban nicks from camming up
 - Fixed spam protection, holds against spam bots now
 - fixed other bugs related to global vars talking between modules

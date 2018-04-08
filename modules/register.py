@@ -18,8 +18,8 @@ class Registration:
 
         :param tinybot: An instance of TinychatBot.
         :type tinybot: TinychatBot
-        :param user: The User object to check.
-        :type user: User
+        :param spamcheck: check if room is in lockdown
+        :type spamcheck: True/False
         :param conf: The config file.
         :type conf: config
         """

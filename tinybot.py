@@ -14,13 +14,12 @@ from modules import register, welcome, spam, tokes, voting
 from page import privacy
 from util import tracklist, botdb
 
-__version__ = '2.4.4'
+__version__ = '2.4.5'
 
 log = logging.getLogger(__name__)
 
 
 class TinychatBot(pinylib.TinychatRTCClient):
-
     musicicon = unicode("🎶", 'utf-8')
     warningicon = unicode("⚠", 'utf-8')
     notallowedicon = unicode("🚫", 'utf-8')
@@ -55,7 +54,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
     worker_bans_working = False
 
     tmp_announcement = None
-
 
     @property
     def config_path(self):
@@ -341,7 +339,6 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 else:
                     _ban_list_info = '\n'.join('(%s) %s:%s [%s]' % (i, user.nick, user.account, user.ban_id)
                                                for i, user in enumerate(self.bl_search_list))
-                    # maybe user string_util.chunk_string here
                     self.handle_msg(_ban_list_info)
 
     def do_forgive(self, user_index):
@@ -804,15 +801,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
         if msg.startswith(prefix):
             self.cmd_handler(msg)
-
         else:
-            if self.active_user.user_level > 4:
-                if self.score != 10:
-                    self.score = 0
-                    self.score = self.spamcheck.check_msg(msg)
-                else:
-                    self.score = 0
-
+            self.score = self.spamcheck.check_msg(msg)
             self.console_write(pinylib.COLOR['white'],
                                '(' + str(self.score) + ') ' + self.active_user.nick + ': ' + msg)
             self.active_user.last_msg = msg
@@ -1532,7 +1522,8 @@ class TinychatBot(pinylib.TinychatRTCClient):
             if self.score < 2:
                 _user = self.users.search(uid)
                 msg = unicode("𝘭𝘦𝘧𝘵 𝘵𝘩𝘦 𝘳𝘰𝘰𝘮", 'utf-8')
-                self.handle_msg('\n %s %s %s' % (self.boticon, _user.nick, msg))
+                if _user is not None:
+                    self.handle_msg('\n %s %s %s' % (self.boticon, _user.nick, msg))
 
         if uid in self.kick_pool:
             self.kick_pool.remove(uid)
@@ -1599,7 +1590,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                     "allowcam"]
         cmod_cmds = ["clr", "camban", "kick", "ban", "unb", "sbl", "fg", "cam", "close", "+banwword", "-badword",
                      "noguest",
-                     "greet", "lurkers", "voteban"]
+                     "greet", "lurkers", "vote ban/cam"]
         media_cmds = ["yt", "close", "seek", "reset", "spl", "del", "skip", "yts", "rpl", "pause", "play", "pyst"]
         public_cmds = ["urb", "wea", "ip", "cn", "8ball", "roll", "flip", "cheers", "tokes"]
 
@@ -1638,14 +1629,14 @@ class TinychatBot(pinylib.TinychatRTCClient):
             action = parts[0].lower().strip()
         except IndexError:
             self.handle_msg(
-                'add or del? %sacc add account level welcomemsg/banreason or %sacc del account' % (
+                'Action required: %sacc add [account] [mod/admin/verified/camban/ban] [welcomemsg/banreason] or %sacc del [account] [reason]' % (
                     prefix, prefix))
             return
         try:
             account = parts[1].lower().strip()
         except IndexError:
             self.handle_msg(
-                'Account was missing, %sacc add account level welcomemsg/banreason or %sacc del account' % (
+                'Account was missing: %sacc add [account] [mod/admin/verified/camban/ban] [welcomemsg/banreason] or %sacc del [account] [reason]' % (
                     prefix, prefix))
             return
         try:
@@ -1735,13 +1726,13 @@ class TinychatBot(pinylib.TinychatRTCClient):
 
                 if allowed:
                     self.buddy_db.add_user(account, level, note, message)
-                    self.handle_msg('%s was added!' % account)
+                    self.handle_msg('Account: %s was added!' % account)
 
                     _user = self.users.search_by_account(account)
                     if _user is not None:
                         _user.user_level = level
                 else:
-                    self.handle_msg('cant add')
+                    self.handle_msg('Account: insufficient privileges')
         return
 
     # == Tinychat API Command Methods. ==
