@@ -599,7 +599,7 @@ class TinychatBot(pinylib.TinychatRTCClient):
                 self.buddy_db.add_bad_word(cmd_arg)
                 self.handle_msg('%s was added to banned words.' % cmd_arg)
 
-            elif cmd == prefix + '-bandword':
+            elif cmd == prefix + '-banword':
                 self.buddy_db.remove_bad_word(cmd_arg)
                 self.handle_msg('%s was removed from banned words.' % cmd_arg)
 
